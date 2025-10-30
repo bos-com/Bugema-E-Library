@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: elibrary-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: elibrary
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - elibrary-network
+
+  backend:
+    build: ./backend
+    container_name: elibrary-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8000"
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=your-secret-key-change-in-production
+      - MONGODB_URI=mongodb://admin:password@mongodb:27017/elibrary?authSource=admin
+      - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://localhost:4173
+      - CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://localhost:4173
+      - JWT_ACCESS_TOKEN_LIFETIME=900
+      - JWT_REFRESH_TOKEN_LIFETIME=604800
+    volumes:
+      - ./backend:/app
+      - backend_static:/app/staticfiles
+      - backend_media:/app/media
+    depends_on:
+      - mongodb
+    networks:
+      - elibrary-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    container_name: elibrary-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=http://localhost:8000/api
+    depends_on:
+      - backend
+    networks:
+      - elibrary-network
+
+volumes:
+  mongodb_data:
+  backend_static:
+  backend_media:
+
+networks:
+  elibrary-network:
+    driver: bridge
