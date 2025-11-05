@@ -1,114 +1,117 @@
-from mongoengine import Document, StringField, DateTimeField, ListField, BooleanField, IntField, ReferenceField, FloatField
-from datetime import datetime
-import uuid
+from django.db import models
+from django.utils.text import slugify
+from django.contrib.auth import get_user_model
 
+# Get the custom User model defined in the 'accounts' app
+User = get_user_model()
 
-class Category(Document):
-    """Book category model"""
-    
-    id = StringField(primary_key=True, default=lambda: str(uuid.uuid4()))
-    name = StringField(required=True, max_length=255)
-    slug = StringField(required=True, unique=True, max_length=255)
-    description = StringField(max_length=1000)
-    cover_image = StringField(max_length=255)  # GridFS file ID
-    created_at = DateTimeField(default=datetime.utcnow)
-    
-    meta = {
-        'collection': 'categories',
-        'indexes': [
-            'slug',
-            'name',
-            'created_at'
-        ]
-    }
-    
+# --- Utility Fields ---
+
+class Author(models.Model):
+    """Author Model"""
+    name = models.CharField(max_length=255, unique=True)
+    slug = models.SlugField(max_length=255, unique=True, editable=False)
+    bio = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.name
 
+class Category(models.Model):
+    """Category Model"""
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True, editable=False)
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
-class Book(Document):
-    """Book model"""
-    
-    id = StringField(primary_key=True, default=lambda: str(uuid.uuid4()))
-    title = StringField(required=True, max_length=500)
-    author = StringField(required=True, max_length=255)
-    description = StringField(max_length=2000)
-    categories = ListField(ReferenceField(Category))
-    tags = ListField(StringField(max_length=50))
-    language = StringField(max_length=10, default='en')
-    year = IntField()
-    isbn = StringField(max_length=20, unique=True, sparse=True)
-    pages = IntField()
-    cover_image = StringField(max_length=255)  # GridFS file ID
-    file = StringField(required=True, max_length=255)  # GridFS file ID
-    file_type = StringField(required=True, choices=['PDF', 'EPUB'], default='PDF')
-    is_published = BooleanField(default=True)
-    created_at = DateTimeField(default=datetime.utcnow)
-    updated_at = DateTimeField(default=datetime.utcnow)
-    
-    # Analytics fields
-    view_count = IntField(default=0)
-    like_count = IntField(default=0)
-    bookmark_count = IntField(default=0)
-    
-    meta = {
-        'collection': 'books',
-        'indexes': [
-            'title',
-            'author',
-            'isbn',
-            'is_published',
-            'created_at',
-            'view_count',
-            'like_count',
-            ('title', 'author', 'description', 'tags'),  # Text search index
-        ]
-    }
-    
+    class Meta:
+        verbose_name_plural = "Categories"
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.title} by {self.author}"
+        return self.name
 
+# --- Core Models ---
 
-class BookLike(Document):
-    """Book like model"""
+class Book(models.Model):
+    """Book Model"""
+    title = models.CharField(max_length=255)
     
-    id = StringField(primary_key=True, default=lambda: str(uuid.uuid4()))
-    user = StringField(required=True)  # User ID
-    book = ReferenceField(Book, required=True)
-    created_at = DateTimeField(default=datetime.utcnow)
+    # FIX: Added on_delete=models.CASCADE for the ForeignKey
+    author = models.ForeignKey(Author, related_name='books', on_delete=models.CASCADE) 
     
-    meta = {
-        'collection': 'book_likes',
-        'indexes': [
-            {'fields': ('user', 'book'), 'unique': True},  # Unique constraint
-            'user',
-            'book',
-            'created_at'
-        ]
-    }
+    description = models.TextField()
+    isbn = models.CharField(max_length=13, unique=True)
+    year = models.IntegerField(null=True, blank=True)
+    pages = models.IntegerField(null=True, blank=True)
+    language = models.CharField(max_length=50, default='en')
+    file_type = models.CharField(max_length=10, choices=[('PDF', 'PDF'), ('EPUB', 'EPUB')])
     
+    # FIX: Changed to ManyToManyField, which is appropriate for multiple categories per book
+    categories = models.ManyToManyField(Category, related_name='books') 
+    
+    tags = models.JSONField(default=list, help_text="List of string tags, e.g., ['classic', 'fiction']")
+
+    # File and Image IDs (Assuming simple storage paths for Postgres)
+    cover_image = models.CharField(max_length=255, blank=True, null=True)
+    file = models.CharField(max_length=255, blank=True, null=True)
+    
+    # Denormalized counters (to match the logic in the seed script)
+    view_count = models.PositiveIntegerField(default=0)
+    like_count = models.PositiveIntegerField(default=0)
+    bookmark_count = models.PositiveIntegerField(default=0)
+    
+    is_published = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     def __str__(self):
-        return f"Like: {self.user} -> {self.book.title}"
+        return self.title
 
 
-class Bookmark(Document):
-    """Book bookmark model"""
-    
-    id = StringField(primary_key=True, default=lambda: str(uuid.uuid4()))
-    user = StringField(required=True)  # User ID
-    book = ReferenceField(Book, required=True)
-    location = StringField(required=True)  # Page number for PDF or CFI for EPUB
-    created_at = DateTimeField(default=datetime.utcnow)
-    
-    meta = {
-        'collection': 'bookmarks',
-        'indexes': [
-            {'fields': ('user', 'book'), 'unique': True},   # Unique constraint
-            'user',
-            'book',
-            'created_at'
-        ]
-    }
-    
+class BookLike(models.Model):
+    """User's like on a specific book"""
+    # FIX: Added on_delete=models.CASCADE
+    user = models.ForeignKey(User, related_name='liked_books', on_delete=models.CASCADE) 
+    # FIX: Added on_delete=models.CASCADE
+    book = models.ForeignKey(Book, related_name='likes', on_delete=models.CASCADE) 
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'book')
+        verbose_name = "Book Like"
+        verbose_name_plural = "Book Likes"
+
     def __str__(self):
-        return f"Bookmark: {self.user} -> {self.book.title} at {self.location}"
+        return f"{self.user.email} likes {self.book.title}"
+
+
+class Bookmark(models.Model):
+    """User's bookmark/reading location in a book"""
+    # FIX: Added on_delete=models.CASCADE
+    user = models.ForeignKey(User, related_name='bookmarks', on_delete=models.CASCADE) 
+    # FIX: Added on_delete=models.CASCADE
+    book = models.ForeignKey(Book, related_name='bookmarks', on_delete=models.CASCADE) 
+    location = models.CharField(max_length=255, help_text="Page number, chapter title, or reading location string")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Assuming multiple bookmarks per user/book is allowed (e.g., for different sections)
+    # If only one bookmark per book is allowed, add: unique_together = ('user', 'book')
+
+    class Meta:
+        verbose_name = "Bookmark"
+        verbose_name_plural = "Bookmarks"
+
+    def __str__(self):
+        return f"Bookmark in {self.book.title} by {self.user.email} at {self.location}"

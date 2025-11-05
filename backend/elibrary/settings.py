@@ -27,16 +27,18 @@ DJANGO_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # ADDED: This app enables PostgreSQL-specific features (JSONField, ArrayField, etc.)
+    'django.contrib.postgres', 
 ]
 
 THIRD_PARTY_APPS = [
     'rest_framework',
-    'rest_framework_mongoengine',
     'rest_framework_simplejwt',
     'corsheaders',
     'drf_spectacular',
     'django_ratelimit',
     'django_filters',
+    # NOTE: The MongoDB app ('rest_framework_mongoengine') was removed here.
 ]
 
 LOCAL_APPS = [
@@ -47,6 +49,8 @@ LOCAL_APPS = [
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
+
+AUTH_USER_MODEL = 'accounts.User'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -81,18 +85,36 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'elibrary.wsgi.application'
 
-# Database
-# We're using MongoDB, so we don't need Django's default database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.dummy',
-    }
-}
+# --- UPDATED DATABASE CONFIGURATION FOR DOCKERIZED POSTGRES ---
+DB_ENGINE = os.getenv('DB_ENGINE', 'django.db.backends.sqlite3')
+DB_NAME = os.getenv('DB_NAME')
+DB_USER = os.getenv('DB_USER')
+DB_PASSWORD = os.getenv('DB_PASSWORD')
+DB_HOST = os.getenv('DB_HOST') # Should resolve to 'postgres' container name
+DB_PORT = os.getenv('DB_PORT', '5432')
 
-# MongoDB Configuration
-import mongoengine
-MONGODB_URI = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/elibrary')
-mongoengine.connect(host=MONGODB_URI)
+if DB_NAME and DB_USER and DB_PASSWORD:
+    DATABASES = {
+        'default': {
+            'ENGINE': DB_ENGINE,
+            'NAME': DB_NAME,
+            'USER': DB_USER,
+            'PASSWORD': DB_PASSWORD,
+            'HOST': DB_HOST,
+            'PORT': DB_PORT,
+        }
+    }
+else:
+    # Fallback for local development outside Docker if variables are missing
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+
+# --- END OF UPDATED DATABASE CONFIGURATION ---
+
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -169,6 +191,7 @@ SIMPLE_JWT = {
 }
 
 # CORS Configuration
+# NOTE: Adjusted example default CORS origin from port 5432 (Postgres) to a common frontend port like 8000/8080 or 3000/5173.
 CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://localhost:3000').split(',')
 CORS_ALLOW_CREDENTIALS = True
 
@@ -204,7 +227,7 @@ LOGGING = {
     },
 }
 
-# elibrary/settings.py
+# CACHE Configuration
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
@@ -213,5 +236,5 @@ CACHES = {
 }
 
 # Tell django-ratelimit which cache to use (optional if you want 'default')
-RATELIMIT_USE_CACHE = "default"   # or RATELIMIT_CACHE depending on your version
+RATELIMIT_USE_CACHE = "default" 
 RATELIMIT_ENABLE = True

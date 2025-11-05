@@ -1,6 +1,4 @@
 from django.utils.deprecation import MiddlewareMixin
-from .models import EventLog
-
 
 class AnalyticsMiddleware(MiddlewareMixin):
     """Middleware to log analytics events"""

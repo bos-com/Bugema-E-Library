@@ -8,6 +8,7 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 # Install system dependencies
+# libpq-dev is the PostgreSQL client library required for the psycopg2-binary Python package.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     build-essential \

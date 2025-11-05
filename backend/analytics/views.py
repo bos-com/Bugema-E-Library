@@ -3,17 +3,21 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.utils import timezone
+from django.db.models import Count # Import Count for aggregation
 from datetime import datetime, timedelta
 from collections import Counter
-from .models import EventLog
+import itertools
+
+# IMPORTANT: Replaced EventLog with the new Django ORM models
+from .models import BookView, SearchQuery 
 from catalog.models import Book, Category, BookLike
-from reading.models import ReadingProgress
+from reading.models import ReadingProgress, ReadingSession
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def admin_analytics_overview(request):
-    """Get admin analytics overview"""
+    """Get admin analytics overview (Refactored to use Django ORM)"""
     if request.user.role != 'ADMIN':
         return Response({'error': 'Admin access required'}, status=status.HTTP_403_FORBIDDEN)
     
@@ -21,15 +25,17 @@ def admin_analytics_overview(request):
     end_date = timezone.now()
     start_date = end_date - timedelta(days=30)
     
-    # Most read books
-    most_read_books = Book.objects(
+    # --- Most Read Books (using Django ORM syntax) ---
+    most_read_books = Book.objects.filter(
         is_published=True
     ).order_by('-view_count')[:10]
     
-    # Most liked categories
+    # --- Most Liked Categories (using Django ORM syntax) ---
     category_likes = {}
-    for like in BookLike.objects():
-        for category in like.book.categories:
+    # Iterate through all BookLike objects
+    for like in BookLike.objects.all():
+        # book.categories is a ManyToMany relationship, so we use .all()
+        for category in like.book.categories.all():
             category_name = category.name
             category_likes[category_name] = category_likes.get(category_name, 0) + 1
     
@@ -39,17 +45,16 @@ def admin_analytics_overview(request):
         reverse=True
     )[:10]
     
-    # Reads per day (last 30 days)
+    # --- Reads per day (last 30 days) ---
     reads_per_day = []
     for i in range(30):
         date = start_date + timedelta(days=i)
         next_date = date + timedelta(days=1)
         
-        # Count book opens on this day
-        book_opens = EventLog.objects(
-            event_type='OPEN_BOOK',
-            created_at__gte=date,
-            created_at__lt=next_date
+        # Count book opens using the new BookView model
+        book_opens = BookView.objects.filter(
+            viewed_at__gte=date,
+            viewed_at__lt=next_date
         ).count()
         
         reads_per_day.append({
@@ -57,33 +62,41 @@ def admin_analytics_overview(request):
             'count': book_opens
         })
     
-    # Active users (users who opened books in last 7 days)
+    # --- Active users (users who viewed books in last 7 days) ---
     week_ago = timezone.now() - timedelta(days=7)
-    active_users = EventLog.objects(
-        event_type='OPEN_BOOK',
-        created_at__gte=week_ago,
-        user__exists=True
-    ).distinct('user')
+    # Get distinct user IDs from BookView (the open-book event replacement)
+    active_user_ids = BookView.objects.filter(
+        viewed_at__gte=week_ago
+    ).values_list('user_id', flat=True).distinct()
     
-    # Top search terms
-    search_events = EventLog.objects(
-        event_type='SEARCH',
-        created_at__gte=start_date
+    # --- Top search terms (using SearchQuery model) ---
+    search_events = SearchQuery.objects.filter(
+        searched_at__gte=start_date
     )
     
     search_terms = []
     for event in search_events:
-        query = event.payload.get('query', '')
+        # SearchQuery has a direct 'query' field, no longer a 'payload' dict
+        query = event.query 
         if query:
             search_terms.append(query.lower())
     
     top_search_terms = Counter(search_terms).most_common(10)
     
-    # Total statistics
-    total_books = Book.objects(is_published=True).count()
+    # --- Total statistics ---
+    total_books = Book.objects.filter(is_published=True).count()
     total_categories = Category.objects.count()
-    total_users = EventLog.objects(user__exists=True).distinct('user').count()
-    total_reads = EventLog.objects(event_type='OPEN_BOOK').count()
+    
+    # Total users who have performed an action (viewed a book or searched)
+    all_view_users = BookView.objects.values_list('user_id', flat=True).distinct()
+    all_search_users = SearchQuery.objects.filter(user__isnull=False).values_list('user_id', flat=True).distinct()
+    
+    # Combine and count distinct user IDs from both querysets
+    total_user_ids = set(itertools.chain(all_view_users, all_search_users))
+    total_users = len(total_user_ids)
+    
+    # Total reads are now total BookView records
+    total_reads = BookView.objects.count()
     
     return Response({
         'overview': {
@@ -91,11 +104,12 @@ def admin_analytics_overview(request):
             'total_categories': total_categories,
             'total_users': total_users,
             'total_reads': total_reads,
-            'active_users_7d': len(active_users)
+            'active_users_7d': len(active_user_ids)
         },
         'most_read_books': [
             {
-                'id': str(book.id),
+                # Django IDs are int/UUID, we ensure they are string for JSON safety
+                'id': str(book.pk), 
                 'title': book.title,
                 'author': book.author,
                 'view_count': book.view_count,
@@ -115,15 +129,17 @@ def admin_analytics_overview(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def user_reading_stats(request):
-    """Get user's reading statistics"""
-    user_id = str(request.user.id)
+    """Get user's reading statistics (Refactored to use Django ORM)"""
+    # Use request.user.pk for ForeignKey lookup
+    user_pk = request.user.pk 
     
     # Time range (last 30 days)
     end_date = timezone.now()
     start_date = end_date - timedelta(days=30)
     
-    # Reading progress data
-    progress_data = ReadingProgress.objects(user=user_id)
+    # Reading progress data (using Django ORM filter)
+    # Assuming ReadingProgress.user is a ForeignKey
+    progress_data = ReadingProgress.objects.filter(user_id=user_pk)
     
     # Books read this month
     books_read_this_month = progress_data.filter(
@@ -141,25 +157,33 @@ def user_reading_stats(request):
     current_streak = 0
     today = timezone.now().date()
     
-    # Get reading sessions for streak calculation
-    from reading.models import ReadingSession
-    sessions = ReadingSession.objects(user=user_id).order_by('-started_at')
+    # Get reading sessions for streak calculation (using Django ORM filter)
+    sessions = ReadingSession.objects.filter(user_id=user_pk).order_by('-started_at')
+    
     if sessions:
         last_session_date = sessions[0].started_at.date()
+        
+        # Check if the streak includes today or yesterday
         if last_session_date == today or last_session_date == today - timedelta(days=1):
             current_streak = 1
             for session in sessions[1:]:
                 session_date = session.started_at.date()
+                # Check for consecutive day
                 if session_date == last_session_date - timedelta(days=1):
                     current_streak += 1
                     last_session_date = session_date
-                else:
+                # Break if day is before the last consecutive day
+                elif session_date < last_session_date - timedelta(days=1):
                     break
+                # Ignore multiple sessions on the same day
+                # else: pass
+        
     
     # Favorite categories
     category_counts = {}
     for progress in progress_data.filter(completed=True):
-        for category in progress.book.categories:
+        # Accessing ManyToMany field requires .all()
+        for category in progress.book.categories.all():
             category_name = category.name
             category_counts[category_name] = category_counts.get(category_name, 0) + 1
     
