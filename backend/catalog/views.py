@@ -12,97 +12,67 @@ from .serializers import (
     BookCreateUpdateSerializer, BookLikeSerializer, BookmarkSerializer
 )
 
-# --- FIX 1: Removed obsolete import causing the ImportError. ---
-# from analytics.models import EventLog 
-
-
+# ... (CategoryListView remains the same) ...
 class CategoryListView(generics.ListAPIView):
     """List all categories with book counts"""
-    # The queryset should ideally annotate book counts if needed for CategorySerializer
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [AllowAny]
 
 
-class BookListView(generics.ListAPIView):
-    """List books with search and filtering"""
-    serializer_class = BookListSerializer
+
+class BookListCreateView(generics.ListCreateAPIView):
+    """
+    GET: List books with search and filtering (Reviewing/Listing).
+    POST: Add a new book/resource.
+    """
+    # Base configuration for listing
     permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    
-    # These fields rely on the model's structure. Adjusted to standard lookups.
     filterset_fields = ['categories__id', 'language', 'year', 'file_type'] 
-    
-    # Django REST Framework's SearchFilter handles text search automatically
-    search_fields = ['title', 'author', 'description', 'tags']
+    search_fields = ['title', 'author', 'description', '@tags'] # Assuming '@tags' for M2M search
     ordering_fields = ['created_at', 'view_count', 'like_count', 'title']
     ordering = ['-created_at']
     
     def get_queryset(self):
-        # FIX 2: Switched from MongoEngine syntax (objects(..)) to Django ORM (objects.filter(..))
-        queryset = Book.objects.filter(is_published=True)
-        
-        # --- FIX 3: Removed Redundant/Incompatible Custom Filtering ---
-        # The DRF filters (DjangoFilterBackend, SearchFilter) handle most of this logic 
-        # based on the filterset_fields and search_fields defined above.
-        
-        # If you need to manually apply filters outside of DRF's mechanism, use:
-        
-        # # Category filter (Manually showing how it's done for a ManyToMany field)
-        # category_id = self.request.query_params.get('category', None)
-        # if category_id:
-        #     # Assumes categories is a ManyToMany field
-        #     queryset = queryset.filter(categories__id=category_id)
-        
-        # # Year range filter
-        # year_from = self.request.query_params.get('year_from', None)
-        # year_to = self.request.query_params.get('year_to', None)
-        # if year_from and year_from.isdigit():
-        #     queryset = queryset.filter(year__gte=int(year_from))
-        # if year_to and year_to.isdigit():
-        #     queryset = queryset.filter(year__lte=int(year_to))
-        
-        return queryset
+        # Only return published books for public list/review
+        return Book.objects.filter(is_published=True)
 
+    def get_serializer_class(self):
+        """Use the appropriate serializer for the request type."""
+        # Use the creation serializer for POST requests
+        if self.request.method == 'POST':
+            return BookCreateUpdateSerializer
+        # Use the list serializer for GET requests (listing/reviewing)
+        return BookListSerializer
 
+    def get_permissions(self):
+        """Restrict POST (creation) to authenticated users."""
+        if self.request.method == 'POST':
+            # Only authenticated users should be able to add new books
+            return [IsAuthenticated()] 
+        # All other methods (GET) use the default permission
+        return super().get_permissions()
+
+# ... (BookDetailView remains the same for now) ...
 class BookDetailView(generics.RetrieveAPIView):
-    """Get book details"""
+    """Get book details (single book review)"""
     serializer_class = BookDetailSerializer
     permission_classes = [AllowAny]
-    lookup_field = 'id' # Assuming 'id' is the primary key field name
+    lookup_field = 'id' 
     
     def get_queryset(self):
-        # FIX 2: Switched from MongoEngine syntax to Django ORM
         return Book.objects.filter(is_published=True)
     
     def retrieve(self, request, *args, **kwargs):
+        # ... (rest of the view logic, including view count update) ...
         instance = self.get_object()
-        
-        # Increment view count
-        # Use F() expression for atomic updates, which is safer
         Book.objects.filter(pk=instance.pk).update(view_count=F('view_count') + 1)
-        # Reload the instance to reflect the update before serialization
         instance.refresh_from_db()
-        
-        # --- FIX 4: Removed Obsolete Analytics Logging ---
-        # The EventLog model does not exist. You need to implement new, 
-        # compatible logging logic if required.
-        # if request.user and request.user.is_authenticated:
-        #     EventLog.objects.create(
-        #         event_type='OPEN_BOOK',
-        #         payload={'book_id': str(instance.id), 'book_title': instance.title},
-        #         user=request.user, # Use user object, not string ID
-        #     )
         
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
-
-# --- File/Cover Serving Views (Incompatible Logic Removed) ---
-# NOTE: These views contained logic for serving files from GridFS or another custom 
-# storage. This logic is incompatible with a standard Django/PostgreSQL setup.
-# You must update your models and settings to serve media files via standard Django 
-# mechanisms (MEDIA_ROOT/MEDIA_URL) or a cloud storage provider (e.g., S3).
 
 @api_view(['GET'])
 @permission_classes([AllowAny])

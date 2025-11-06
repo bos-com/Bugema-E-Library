@@ -49,7 +49,6 @@ class Book(models.Model):
     
     # FIX: Added on_delete=models.CASCADE for the ForeignKey
     author = models.ForeignKey(Author, related_name='books', on_delete=models.CASCADE) 
-    
     description = models.TextField()
     isbn = models.CharField(max_length=13, unique=True)
     year = models.IntegerField(null=True, blank=True)
