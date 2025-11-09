@@ -87,16 +87,13 @@ TEMPLATES = [
 ]
 
 # Define DATABASES using dj_database_url
+DATABASE_URL = os.getenv("DATABASE_URL")
+
 DATABASES = {
-    'default': dj_database_url.config(
-        # Reads the DATABASE_URL environment variable loaded from .env
-        default=os.environ.get('DATABASE_URL'),
-        
-        # Recommended for Neon/PostgreSQL:
-        conn_max_age=600, 
-        
-        # MANDATORY for Neon: ensures secure connection
-        ssl_require=True 
+    "default": dj_database_url.parse(
+        DATABASE_URL,
+        conn_max_age=600,
+        ssl_require=True
     )
 }
 

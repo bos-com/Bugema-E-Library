@@ -1,3 +1,4 @@
+import os
 from rest_framework import generics, status, filters
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -5,6 +6,10 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.http import Http404, HttpResponse
 from django.db.models import Q, Max, F # Added F and Max for potential future use
+
+from django.conf import settings 
+from wsgiref.util import FileWrapper
+from django.http import HttpResponse, Http404, FileResponse
 
 from .models import Category, Book, BookLike, Bookmark
 from .serializers import (
@@ -83,7 +88,6 @@ def book_cover(request, book_id):
         if not book.cover_image:
             raise Http404("Cover image not found")
         
-        # FIX 5: Removed dependency on serve_file_from_gridfs
         # Placeholder for serving via Django's media system or a redirect
         return HttpResponse(status=status.HTTP_501_NOT_IMPLEMENTED, 
                             content="File serving logic needs to be updated for new storage.")
@@ -94,28 +98,64 @@ def book_cover(request, book_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def book_read_stream(request, book_id):
-    """Stream book file for reading (Placeholder for new file serving logic)"""
+    """Stream book file for reading (NO DOWNLOAD)"""
+    
+    # 🚨 TEMPORARY: Logging/raising the specific error instead of the generic 500
+    # You MUST check your server console for the actual traceback now!
     try:
         book = Book.objects.get(id=book_id, is_published=True)
+    
         if not book.file:
-            raise Http404("Book file not found")
+            raise Http404("Book file path not found in database.")
+            
+        # Construct the full file path
+        file_path = os.path.join(settings.MEDIA_ROOT, book.file)
         
-        # FIX 5: Removed dependency on SignedURLGenerator and serve_file_stream
-        # The token logic is also removed as it relies on the obsolete file serving system.
-        return HttpResponse(status=status.HTTP_501_NOT_IMPLEMENTED, 
-                            content="Book stream logic needs to be updated for new storage.")
+        if not os.path.exists(file_path):
+            raise Http404(f"Book file not found on server at path: {file_path}")
+        
+        # Determine the MIME type based on the stored file_type
+        if book.file_type == 'PDF':
+            content_type = 'application/pdf'
+        elif book.file_type == 'EPUB':
+            content_type = 'application/epub+zip'
+        else:
+            content_type = 'application/octet-stream' 
+
+        # Open the file and prepare for streaming
+        # The 'with' statement ensures the file_handle is always closed, preventing leaks.
+        with open(file_path, 'rb') as file_handle:
+            response = HttpResponse(FileWrapper(file_handle), content_type=content_type)
+        
+        # CRITICAL: Prevent Download with Content-Disposition Header
+        response['Content-Disposition'] = f'inline; filename="{os.path.basename(book.file)}"'
+        
+        response['Content-Length'] = os.path.getsize(file_path)
+        
+        return response
         
     except Book.DoesNotExist:
+        # User requested a book that doesn't exist or isn't published
         raise Http404("Book not found")
+    
+    # Re-raising the original error for debugging (REMOVE THIS block later)
+    # The error now appears in your server console, which is what we need to see!
+    except FileNotFoundError as e:
+        # This will be raised if the file path is wrong or the file is missing
+        return Response({'error': f"File system error: {e}"}, 
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except PermissionError as e:
+        # This will be raised if the Django process can't read the file
+        return Response({'error': f"Permission error: {e}"}, 
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        # Catch all other exceptions and log them
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Unhandled streaming error for book {book_id}: {e}")
+        return Response({'error': 'An unhandled internal error occurred while streaming the file.'}, 
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_read_token(request, book_id):
-    """Get signed token for reading book (Obsolete view)"""
-    # FIX 5: This entire view is obsolete without a custom signed URL generator
-    return Response({'error': 'Token generation logic is currently disabled due to system migration.'}, 
-                    status=status.HTTP_501_NOT_IMPLEMENTED)
 
 
 @api_view(['POST'])
@@ -168,7 +208,6 @@ def toggle_bookmark(request, book_id):
         user = request.user
         location = request.data.get('location', '')
         
-        # FIX 2: Switched from MongoEngine query syntax to Django ORM filter
         bookmark = Bookmark.objects.filter(user=user, book=book).first()
         
         if bookmark:
@@ -187,9 +226,6 @@ def toggle_bookmark(request, book_id):
             # Atomically increment bookmark count
             Book.objects.filter(pk=book.pk).update(bookmark_count=F('bookmark_count') + 1)
             
-            # --- FIX 4: Removed Obsolete Analytics Logging ---
-            # EventLog.objects.create(event_type='BOOKMARK', payload={'book_id': str(book.id), 'location': location}, user=user)
-            
             # Re-fetch the count for the response
             book.refresh_from_db()
             return Response({'bookmarked': True, 'bookmark_count': book.bookmark_count})
@@ -205,9 +241,7 @@ def search_suggestions(request):
     query = request.GET.get('query', '').strip()
     if len(query) < 2:
         return Response({'suggestions': []})
-    
-    # FIX 2: Switched from MongoEngine syntax to Django ORM filter
-    # Use standard Django Q objects and __icontains for case-insensitive search
+ 
     books = Book.objects.filter(
         Q(title__icontains=query) | Q(author__icontains=query),
         is_published=True
