@@ -41,7 +41,8 @@ THIRD_PARTY_APPS = [
     'drf_spectacular',
     'django_ratelimit',
     'django_filters',
-    # NOTE: The MongoDB app ('rest_framework_mongoengine') was removed here.
+    'cloudinary',
+    'cloudinary_storage',
 ]
 
 LOCAL_APPS = [
@@ -185,6 +186,15 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'A comprehensive e-library management system',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    # Add security definitions so Swagger shows an Authorize button for JWT Bearer tokens
+    'SECURITY': [{'bearerAuth': []}],
+    'SECURITY_SCHEMES': {
+        'bearerAuth': {
+            'type': 'http',
+            'scheme': 'bearer',
+            'bearerFormat': 'JWT',
+        }
+    },
 }
 
 # Rate Limiting
@@ -222,3 +232,15 @@ CACHES = {
 # Tell django-ratelimit which cache to use (optional if you want 'default')
 RATELIMIT_USE_CACHE = "default" 
 RATELIMIT_ENABLE = True
+
+
+# Cloudinary credentials (load from environment or secret manager)
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': 'e-bugema', 
+    'API_KEY': '858819554342756',
+    'API_SECRET': '5zjZTWusZjmw5YmcY29frbxeT_k',
+}
+
+DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+
+MEDIA_URL = "/media/"

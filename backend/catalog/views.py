@@ -1,5 +1,6 @@
 import os
-import logging # Added logging import for error handling
+import logging 
+from django.shortcuts import get_object_or_404   
 from rest_framework import generics, status, filters
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -9,8 +10,7 @@ from django.http import Http404, HttpResponse
 from django.db.models import Q, Max, F 
 
 from django.conf import settings 
-# Removed: from wsgiref.util import FileWrapper # Removed old import
-from django.http import HttpResponse, Http404, FileResponse # FileResponse is used below
+from django.http import HttpResponse, Http404, FileResponse 
 
 from .models import Category, Book, BookLike, Bookmark
 from .serializers import (
@@ -91,55 +91,60 @@ def book_cover(request, book_id):
         raise Http404("Book not found")
 
 
-# --- CORE FIX: BOOK STREAMING VIEW ---
+# --- BOOK STREAMING VIEW ---
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def book_read_stream(request, book_id):
-    """Stream book file for reading (NO DOWNLOAD)"""
+    """
+    Stream book file for reading (works with remote storage like Cloudinary).
+    This uses the storage backend API (book.file.open) instead of local filesystem paths.
+    """
     try:
         book = Book.objects.get(id=book_id, is_published=True)
-    
         if not book.file:
-            raise Http404("Book file path not found in database.")
-            
-        # Construct the full file path.
-        file_path = os.path.join(settings.MEDIA_ROOT, str(book.file))
-        
-        if not os.path.exists(file_path):
-            logger.error(f"File not found on server for book {book_id} at path: {file_path}")
-            raise Http404(f"Book file not found on server.")
-        
-        # Determine the MIME type
+            raise Http404("Book file not found")
+
+        # Open file via storage backend (works with Cloudinary/django-cloudinary-storage)
+        try:
+            file_obj = book.file.open('rb')
+        except Exception:
+            logger.exception("Failed to open file for book %s via storage backend", book_id)
+            raise Http404("Unable to open book file")
+
+        # MIME type
         if book.file_type == 'PDF':
             content_type = 'application/pdf'
         elif book.file_type == 'EPUB':
             content_type = 'application/epub+zip'
+        elif book.file_type == 'VIDEO':
+            content_type = 'video/mp4'
         else:
-            content_type = 'application/octet-stream' 
+            content_type = 'application/octet-stream'
 
-        # 🌟 Refactored to use FileResponse
-        file_handle = open(file_path, 'rb')
-        response = FileResponse(file_handle, content_type=content_type)
-        
-        # CRITICAL: Use 'inline' to force viewing in the browser/reader, not downloading.
-        response['Content-Disposition'] = f'inline; filename="{os.path.basename(file_path)}"'
-        response['Content-Length'] = os.path.getsize(file_path)
-        
+        response = FileResponse(file_obj, content_type=content_type)
+        # inline so browser displays instead of forcing download
+        filename = os.path.basename(book.file.name) if book.file.name else 'file'
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+
+        # try to set length if available
+        try:
+            if hasattr(file_obj, 'size') and file_obj.size is not None:
+                response['Content-Length'] = str(file_obj.size)
+        except Exception:
+            pass
+
         return response
-        
+
     except Book.DoesNotExist:
         raise Http404("Book not found")
-    
-    except FileNotFoundError as e:
-        return Response({'error': f"File system error: File not found at server location."}, 
+    except Http404:
+        raise
+    except Exception:
+        logger.exception("Unhandled streaming error for book %s", book_id)
+        return Response({'error': 'An unhandled internal error occurred while streaming the file.'},
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    except PermissionError as e:
-        return Response({'error': f"Permission error: Django server cannot read the file."}, 
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    except Exception as e:
-        logger.error(f"Unhandled streaming error for book {book_id}: {e}", exc_info=True)
-        return Response({'error': 'An unhandled internal error occurred while streaming the file.'}, 
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 
 
 # --- LIKE/BOOKMARK VIEWS ---
@@ -247,3 +252,11 @@ def search_suggestions(request):
         })
     
     return Response({'suggestions': suggestions[:10]})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def book_file_url(request, book_id):
+    book = get_object_or_404(Book, id=book_id, is_published=True)
+    if not book.file:
+        return Response({'error': 'No file for this book'}, status=404)
+    return Response({'url': book.file.url})

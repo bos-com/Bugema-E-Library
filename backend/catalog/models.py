@@ -54,16 +54,13 @@ class Book(models.Model):
     year = models.IntegerField(null=True, blank=True)
     pages = models.IntegerField(null=True, blank=True)
     language = models.CharField(max_length=50, default='en')
-    file_type = models.CharField(max_length=10, choices=[('PDF', 'PDF'), ('EPUB', 'EPUB')])
-    
-    # FIX: Changed to ManyToManyField, which is appropriate for multiple categories per book
+    file_type = models.CharField(max_length=10, choices=[('PDF', 'PDF'), ('EPUB', 'EPUB'), ('VIDEO','VIDEO')])
     categories = models.ManyToManyField(Category, related_name='books') 
-    
     tags = models.JSONField(default=list, help_text="List of string tags, e.g., ['classic', 'fiction']")
 
     # File and Image IDs (Assuming simple storage paths for Postgres)
-    cover_image = models.CharField(max_length=255, blank=True, null=True)
-    file = models.CharField(max_length=255, blank=True, null=True)
+    cover_image = models.ImageField(upload_to='covers/', null=True, blank=True)
+    file = models.FileField(upload_to='books/')
     
     # Denormalized counters (to match the logic in the seed script)
     view_count = models.PositiveIntegerField(default=0)
@@ -80,9 +77,7 @@ class Book(models.Model):
 
 class BookLike(models.Model):
     """User's like on a specific book"""
-    # FIX: Added on_delete=models.CASCADE
     user = models.ForeignKey(User, related_name='liked_books', on_delete=models.CASCADE) 
-    # FIX: Added on_delete=models.CASCADE
     book = models.ForeignKey(Book, related_name='likes', on_delete=models.CASCADE) 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -97,17 +92,12 @@ class BookLike(models.Model):
 
 class Bookmark(models.Model):
     """User's bookmark/reading location in a book"""
-    # FIX: Added on_delete=models.CASCADE
     user = models.ForeignKey(User, related_name='bookmarks', on_delete=models.CASCADE) 
-    # FIX: Added on_delete=models.CASCADE
     book = models.ForeignKey(Book, related_name='bookmarks', on_delete=models.CASCADE) 
     location = models.CharField(max_length=255, help_text="Page number, chapter title, or reading location string")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    # Assuming multiple bookmarks per user/book is allowed (e.g., for different sections)
-    # If only one bookmark per book is allowed, add: unique_together = ('user', 'book')
-
     class Meta:
         verbose_name = "Bookmark"
         verbose_name_plural = "Bookmarks"
