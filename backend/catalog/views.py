@@ -1,5 +1,10 @@
 import os
 import logging 
+import cloudinary 
+import requests
+import time
+from pathlib import Path
+from django.utils import timezone
 from django.shortcuts import get_object_or_404   
 from rest_framework import generics, status, filters, viewsets
 from rest_framework.decorators import api_view, permission_classes
@@ -88,60 +93,81 @@ def book_cover(request, book_id):
         raise Http404("Book not found")
 
 
-# --- BOOK STREAMING VIEW ---
+# ----------------------------------------------------------------------
+#  BOOK STREAMING VIEW – SIGNED CLOUDINARY URL (Option 1)
+# ----------------------------------------------------------------------
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def book_read_stream(request, book_id):
-    """
-    Stream book file for reading (works with remote storage like Cloudinary).
-    This uses the storage backend API (book.file.open) instead of local filesystem paths.
-    """
     try:
         book = Book.objects.get(id=book_id, is_published=True)
         if not book.file:
-            raise Http404("Book file not found")
+            return Response({'error': 'Book file not found'}, status=404)
 
-        # Open file via storage backend (works with Cloudinary/django-cloudinary-storage)
+        # CORRECT public_id
         try:
-            file_obj = book.file.open('rb')
-        except Exception:
-            logger.exception("Failed to open file for book %s via storage backend", book_id)
-            raise Http404("Unable to open book file")
+            rel_path = Path(book.file.name).relative_to('media')
+            public_id = rel_path.as_posix()
+        except ValueError:
+            return Response({'error': 'Invalid file path'}, status=400)
 
-        # MIME type
-        if book.file_type == 'PDF':
-            content_type = 'application/pdf'
-        elif book.file_type == 'EPUB':
-            content_type = 'application/epub+zip'
-        elif book.file_type == 'VIDEO':
-            content_type = 'video/mp4'
-        else:
-            content_type = 'application/octet-stream'
+        resource_type = "raw" if book.file_type in ('PDF', 'EPUB') else "video"
 
-        response = FileResponse(file_obj, content_type=content_type)
-        # inline so browser displays instead of forcing download
-        filename = os.path.basename(book.file.name) if book.file.name else 'file'
+        logger.info("Cloudinary public_id: %s", public_id)
+
+        signed_url = cloudinary.utils.cloudinary_url(
+            public_id,
+            resource_type=resource_type,
+            sign_url=True,
+            type="upload",            
+            version=1,
+            expires_at=int(time.time()) + 3600,
+            attachment=True,
+        )[0]
+
+        cloud_resp = requests.get(signed_url, stream=True, timeout=30)
+        cloud_resp.raise_for_status()
+        # MIME type (same logic you already had)
+        mime_map = {
+            'PDF':   'application/pdf',
+            'EPUB':  'application/epub+zip',
+            'VIDEO': 'video/mp4',
+        }
+        content_type = mime_map.get(book.file_type, 'application/octet-stream')
+
+        # Filename for the Content-Disposition header
+        filename = os.path.basename(book.file.name) or 'file'
+
+        # Build the Django streaming response
+        response = StreamingHttpResponse(
+            cloud_resp.iter_content(chunk_size=8192),
+            content_type=content_type,
+        )
         response['Content-Disposition'] = f'inline; filename="{filename}"'
 
-        # try to set length if available
-        try:
-            if hasattr(file_obj, 'size') and file_obj.size is not None:
-                response['Content-Length'] = str(file_obj.size)
-        except Exception:
-            pass
+        # Optional: forward Cloudinary's Content-Length if present
+        if 'Content-Length' in cloud_resp.headers:
+            response['Content-Length'] = cloud_resp.headers['Content-Length']
 
         return response
 
+    # ----------------------------------------------------------------------
+    #  Error handling (mirrors your original view)
+    # ----------------------------------------------------------------------
     except Book.DoesNotExist:
-        raise Http404("Book not found")
-    except Http404:
-        raise
-    except Exception:
+        raise HttpResponseNotFound("Book not found")
+    except requests.exceptions.HTTPError as exc:
+        logger.exception("Cloudinary request failed for book %s", book_id)
+        return Response(
+            {'error': f'Failed to retrieve file from Cloudinary: {exc}'},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+    except Exception as exc:
         logger.exception("Unhandled streaming error for book %s", book_id)
-        return Response({'error': 'An unhandled internal error occurred while streaming the file.'},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
+        return Response(
+            {'error': 'An internal error occurred while streaming the file.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 # --- LIKE/BOOKMARK VIEWS ---

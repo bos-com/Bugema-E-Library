@@ -3,85 +3,27 @@ import mimetypes
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.http import HttpResponse, Http404, FileResponse
-from django.core.files.storage import Storage
+from django.core.files.storage import default_storage # Import Django's default storage
 from django.core.files.base import ContentFile
-from pymongo import MongoClient
-import gridfs
+# Removed pymongo and gridfs imports
 import hashlib
 import hmac
 import base64
 from urllib.parse import quote
+from django.shortcuts import get_object_or_404
+# You'll need to import your Book model (or whatever model holds the file)
+# Example: from .models import Book 
 
 
-class GridFSStorage(Storage):
-    """Custom storage class for GridFS"""
-    
-    def __init__(self, location=None, base_url=None):
-        self.location = location or settings.MEDIA_ROOT
-        self.base_url = base_url or settings.MEDIA_URL
-        self.client = MongoClient(settings.MONGODB_URI)
-        self.db = self.client.get_default_database()
-        self.fs = gridfs.GridFS(self.db)
-    
-    def _open(self, name, mode='rb'):
-        """Open file from GridFS"""
-        try:
-            file_id = self._get_file_id(name)
-            return self.fs.get(file_id)
-        except:
-            raise FileNotFoundError(f"File {name} not found")
-    
-    def _save(self, name, content):
-        """Save file to GridFS"""
-        file_id = self.fs.put(
-            content.read(),
-            filename=name,
-            content_type=getattr(content, 'content_type', None) or mimetypes.guess_type(name)[0]
-        )
-        return str(file_id)
-    
-    def delete(self, name):
-        """Delete file from GridFS"""
-        try:
-            file_id = self._get_file_id(name)
-            self.fs.delete(file_id)
-        except:
-            pass
-    
-    def exists(self, name):
-        """Check if file exists in GridFS"""
-        try:
-            file_id = self._get_file_id(name)
-            return self.fs.exists(file_id)
-        except:
-            return False
-    
-    def listdir(self, path):
-        """List directory contents"""
-        files = []
-        for grid_out in self.fs.find():
-            files.append(grid_out.filename)
-        return [], files
-    
-    def size(self, name):
-        """Get file size"""
-        try:
-            file_id = self._get_file_id(name)
-            return self.fs.get(file_id).length
-        except:
-            return 0
-    
-    def url(self, name):
-        """Get file URL"""
-        return f"{self.base_url}{name}"
-    
-    def _get_file_id(self, name):
-        """Get file ID from filename or ID"""
-        if name.startswith('ObjectId(') and name.endswith(')'):
-            return name[9:-1]  # Remove 'ObjectId(' and ')'
-        return name
+# --- Storage Class (DEPRECATED/REMOVED) ---
+# When using PostgreSQL/ORM, you typically use Django's default FileSystemStorage 
+# for local files or a third-party package for S3/Cloud storage.
+# The custom GridFSStorage class is no longer needed.
 
 
+# --- Signed URL Generator (RETAINS LOGIC) ---
+# This class for token generation/verification is entirely agnostic to the storage 
+# backend (GridFS, S3, local, etc.) as it only validates access permissions.
 class SignedURLGenerator:
     """Generate signed URLs for secure file access"""
     
@@ -108,7 +50,7 @@ class SignedURLGenerator:
             file_id_from_token, user_id_from_token, timestamp = message.split(':')
             
             # Check if token is for correct file and user
-            if file_id_from_token != file_id or user_id_from_token != user_id:
+            if str(file_id_from_token) != str(file_id) or str(user_id_from_token) != str(user_id):
                 return False
             
             # Check if token is expired
@@ -127,52 +69,65 @@ class SignedURLGenerator:
             return False
 
 
-def serve_file_from_gridfs(file_id, filename=None, content_type=None, inline=True):
-    """Serve file from GridFS with proper headers"""
+# --- File Serving Functions (MODIFIED) ---
+
+def serve_file_from_orm(book_instance, request, inline=True):
+    """
+    Serve file using Django's FileResponse, leveraging the file's internal open() method.
+    
+    NOTE: You must pass the entire model instance (e.g., Book.objects.get(pk=3)) 
+    or the FileField object itself.
+    """
     try:
-        client = MongoClient(settings.MONGODB_URI)
-        db = client.get_default_database()
-        fs = gridfs.GridFS(db)
+        # Get the actual File object from the model instance
+        file_field = book_instance.file # Assuming 'file' is the name of your FileField
         
-        file_obj = fs.get(file_id)
+        # Check if the file actually exists in the storage
+        if not file_field:
+            raise Http404("File reference not found on model.")
+
+        # Use the storage's open method to get a file handle
+        file_handle = file_field.open('rb')
+
+        filename = os.path.basename(file_field.name)
+        content_type = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
         
-        if not filename:
-            filename = file_obj.filename or 'file'
-        
-        if not content_type:
-            content_type = file_obj.content_type or 'application/octet-stream'
-        
-        response = HttpResponse(
-            file_obj.read(),
+        # Use FileResponse for efficient streaming
+        response = FileResponse(
+            file_handle, 
             content_type=content_type
         )
         
         disposition = 'inline' if inline else 'attachment'
         response['Content-Disposition'] = f'{disposition}; filename="{quote(filename)}"'
         response['Accept-Ranges'] = 'bytes'
+        response['Content-Length'] = file_field.size # Use file field's size property
         response['Cache-Control'] = 'private, max-age=3600'
         response['X-Accel-Buffering'] = 'no'
         
         return response
-    except:
+    except Exception as e:
+        # Log the error (optional)
+        print(f"Error serving file: {e}")
         raise Http404("File not found")
 
 
-def serve_file_stream(file_id, request, filename=None, content_type=None):
-    """Serve file with range support for streaming"""
+def serve_file_stream(book_instance, request):
+    """
+    Serve file with range support for streaming, based on Django's FileField.
+    This replaces your GridFS-specific implementation with a more generic approach.
+    """
     try:
-        client = MongoClient(settings.MONGODB_URI)
-        db = client.get_default_database()
-        fs = gridfs.GridFS(db)
+        file_field = book_instance.file # Assuming 'file' is the name of your FileField
         
-        file_obj = fs.get(file_id)
-        file_size = file_obj.length
+        if not file_field or not file_field.storage.exists(file_field.name):
+            raise Http404("File not found in storage.")
+            
+        file_handle = file_field.open('rb')
+        file_size = file_field.size
         
-        if not filename:
-            filename = file_obj.filename or 'file'
-        
-        if not content_type:
-            content_type = file_obj.content_type or 'application/octet-stream'
+        filename = os.path.basename(file_field.name)
+        content_type = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
         
         # Handle range requests
         range_header = request.META.get('HTTP_RANGE')
@@ -185,8 +140,8 @@ def serve_file_stream(file_id, request, filename=None, content_type=None):
                 return HttpResponse(status=416)
             
             content_length = end - start + 1
-            file_obj.seek(start)
-            content = file_obj.read(content_length)
+            file_handle.seek(start)
+            content = file_handle.read(content_length)
             
             response = HttpResponse(
                 content,
@@ -196,9 +151,9 @@ def serve_file_stream(file_id, request, filename=None, content_type=None):
             response['Content-Range'] = f'bytes {start}-{end}/{file_size}'
             response['Content-Length'] = str(content_length)
         else:
-            content = file_obj.read()
-            response = HttpResponse(
-                content,
+            # Full file response
+            response = FileResponse(
+                file_handle,
                 content_type=content_type
             )
             response['Content-Length'] = str(file_size)
@@ -209,5 +164,7 @@ def serve_file_stream(file_id, request, filename=None, content_type=None):
         response['X-Accel-Buffering'] = 'no'
         
         return response
-    except:
+    except Exception as e:
+        # Log the error (optional)
+        print(f"Error streaming file: {e}")
         raise Http404("File not found")

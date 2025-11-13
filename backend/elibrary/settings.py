@@ -9,6 +9,8 @@ import dj_database_url
 
 from urllib.parse import urlparse, parse_qsl
 
+import cloudinary
+
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -87,18 +89,25 @@ TEMPLATES = [
     },
 ]
 
-# Define DATABASES using dj_database_url
+
+
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is not set")
 
 DATABASES = {
     "default": dj_database_url.parse(
         DATABASE_URL,
         conn_max_age=600,
-        ssl_require=True
+        ssl_require=True,
+        conn_health_checks=True,
     )
 }
 
-# --- END OF UPDATED DATABASE CONFIGURATION ---
+# Override connection lifetime: close after every request (good for serverless/local dev)
+DATABASES["default"]["CONN_MAX_AGE"] = 0
+
 
 
 # Password validation
@@ -242,11 +251,15 @@ RATELIMIT_ENABLE = True
 
 
 # Cloudinary credentials (load from environment or secret manager)
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': 'e-bugema', 
-    'API_KEY': '858819554342756',
-    'API_SECRET': '5zjZTWusZjmw5YmcY29frbxeT_k',
-}
+
+
+
+cloudinary.config(
+    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME', 'e-bugema'),
+    api_key=os.getenv('CLOUDINARY_API_KEY', '784176254118466'),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET', 'wCG7qPZViEo8q1tVJDpi89mM5Us'),
+    secure=True
+)
 
 DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
