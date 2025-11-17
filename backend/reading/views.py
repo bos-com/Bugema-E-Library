@@ -12,6 +12,12 @@ from .serializers import ReadingProgressSerializer, ReadingSessionSerializer
 # Assuming ReadingStatsSerializer is also available, though not used directly in views.
 # from .serializers import ReadingStatsSerializer 
 from catalog.models import Book, BookLike, Bookmark
+def _absolute_media_url(request, file_field):
+    if not file_field:
+        return None
+    url = file_field.url if hasattr(file_field, 'url') else file_field
+    return request.build_absolute_uri(url) if request else url
+
 
 # --- FIX: Removed the failing import from analytics.models import EventLog ---
 # The previous NoSQL EventLog model is not available in the Django ORM context.
@@ -179,12 +185,9 @@ def user_dashboard(request):
     category_counts = {}
     # FIX: Ensure we select related 'book' for efficiency
     for progress in ReadingProgress.objects.filter(user=user, completed=True).select_related('book'):
-        # NOTE: This still assumes progress.book.categories is a list/array field 
-        # (like ArrayField or JSONField in Django), which is a risky assumption.
-        # If Book.categories is a ManyToMany field, this loop must be adjusted.
-        if progress.book.categories:
-             for category in progress.book.categories: # Assumes .categories is a list of objects/dicts
-                category_name = category.get('name') if isinstance(category, dict) else category
+        if progress.book_id:
+            for category in progress.book.categories.all():
+                category_name = category.name
                 if category_name:
                     category_counts[category_name] = category_counts.get(category_name, 0) + 1
     
@@ -205,15 +208,16 @@ def user_dashboard(request):
     }
     
     # Mapping logic for response data remains the same
+    serializer_context = {'request': request}
     response_data = {
-        'in_progress': ReadingProgressSerializer(in_progress, many=True).data,
-        'completed': ReadingProgressSerializer(completed, many=True).data,
+        'in_progress': ReadingProgressSerializer(in_progress, many=True, context=serializer_context).data,
+        'completed': ReadingProgressSerializer(completed, many=True, context=serializer_context).data,
         'liked_books': [
             {
                 'id': str(book.id),
                 'title': book.title,
                 'author': book.author,
-                'cover_image': book.cover_image,
+                'cover_image': _absolute_media_url(request, book.cover_image),
                 'created_at': book.created_at
             } for book in liked_books_data
         ],
@@ -222,7 +226,7 @@ def user_dashboard(request):
                 'id': str(book.id),
                 'title': book.title,
                 'author': book.author,
-                'cover_image': book.cover_image,
+                'cover_image': _absolute_media_url(request, book.cover_image),
                 # Need to find the corresponding bookmark object
                 'location': next((b.location for b in bookmarked_books_qs if b.book_id == book.id), None),
                 'created_at': next((b.created_at for b in bookmarked_books_qs if b.book_id == book.id), None),

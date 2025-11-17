@@ -12,8 +12,8 @@ interface AuthState {
   register: (userData: RegisterRequest) => Promise<void>
   logout: () => void
   checkAuth: () => Promise<void>
-  setTokens: (tokens: AuthTokens) => void
-  setUser: (user: User) => void
+  setTokens: (tokens: AuthTokens | null) => void
+  setUser: (user: User | null) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -94,12 +94,15 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      setTokens: (tokens: AuthTokens) => {
+      setTokens: (tokens: AuthTokens | null) => {
         set({ tokens })
       },
 
-      setUser: (user: User) => {
-        set({ user })
+      setUser: (user: User | null) => {
+        set({
+          user,
+          isAuthenticated: !!user
+        })
       }
     }),
     {

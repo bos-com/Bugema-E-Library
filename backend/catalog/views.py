@@ -50,10 +50,23 @@ class BookViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
 
     def get_queryset(self):
-        # Apply filtering logic based on action
-        if self.action == 'list' or self.action == 'retrieve':
-            return Book.objects.filter(is_published=True)
-        return Book.objects.all()
+        """
+        Base queryset with optional free-text search using ?query=...
+        Frontend sends `query` while DRF's SearchFilter defaults to `search`,
+        so we support both for convenience.
+        """
+        qs = Book.objects.filter(is_published=True) if self.action in ['list', 'retrieve'] else Book.objects.all()
+
+        request = self.request
+        query = request.query_params.get('query') or request.query_params.get('search')
+        if query:
+            qs = qs.filter(
+                Q(title__icontains=query)
+                | Q(author__name__icontains=query)
+                | Q(description__icontains=query)
+                | Q(tags__icontains=query)
+            )
+        return qs
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
@@ -104,10 +117,10 @@ def book_read_stream(request, book_id):
         if not book.file:
             return Response({'error': 'Book file not found'}, status=404)
 
-        # CORRECT public_id
+   
         try:
             rel_path = Path(book.file.name).relative_to('media')
-            public_id = rel_path.as_posix()
+            public_id = rel_path.as_posix()  
         except ValueError:
             return Response({'error': 'Invalid file path'}, status=400)
 
@@ -118,16 +131,16 @@ def book_read_stream(request, book_id):
         signed_url = cloudinary.utils.cloudinary_url(
             public_id,
             resource_type=resource_type,
+            type="upload",
             sign_url=True,
-            type="upload",            
-            version=1,
             expires_at=int(time.time()) + 3600,
             attachment=True,
         )[0]
 
+        logger.info("Signed URL: %s", signed_url)
         cloud_resp = requests.get(signed_url, stream=True, timeout=30)
         cloud_resp.raise_for_status()
-        # MIME type (same logic you already had)
+
         mime_map = {
             'PDF':   'application/pdf',
             'EPUB':  'application/epub+zip',
@@ -135,25 +148,23 @@ def book_read_stream(request, book_id):
         }
         content_type = mime_map.get(book.file_type, 'application/octet-stream')
 
-        # Filename for the Content-Disposition header
+    
         filename = os.path.basename(book.file.name) or 'file'
 
-        # Build the Django streaming response
         response = StreamingHttpResponse(
             cloud_resp.iter_content(chunk_size=8192),
             content_type=content_type,
         )
         response['Content-Disposition'] = f'inline; filename="{filename}"'
 
-        # Optional: forward Cloudinary's Content-Length if present
+    
         if 'Content-Length' in cloud_resp.headers:
             response['Content-Length'] = cloud_resp.headers['Content-Length']
 
         return response
 
-    # ----------------------------------------------------------------------
-    #  Error handling (mirrors your original view)
-    # ----------------------------------------------------------------------
+
+
     except Book.DoesNotExist:
         raise HttpResponseNotFound("Book not found")
     except requests.exceptions.HTTPError as exc:
@@ -168,6 +179,20 @@ def book_read_stream(request, book_id):
             {'error': 'An internal error occurred while streaming the file.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def book_read_token(request, book_id):
+    """
+    Lightweight endpoint used by the frontend to verify access before opening the reader.
+    For now we just ensure the book exists and the user is authenticated, then return a
+    short-lived opaque token string that the frontend passes back as a query param.
+    """
+    book = get_object_or_404(Book, id=book_id, is_published=True)
+    # Optionally log a BookView here in the future.
+    # For simplicity, the "token" is not validated server-side by the stream view.
+    return Response({'token': f'allowed-{book.id}'}, status=status.HTTP_200_OK)
 
 
 # --- LIKE/BOOKMARK VIEWS ---

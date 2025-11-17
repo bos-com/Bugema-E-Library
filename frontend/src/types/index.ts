@@ -87,7 +87,17 @@ export interface ReadingStats {
   current_streak_days: number
   longest_streak_days: number
   favorite_category?: string
+  /**
+   * List of favourite categories with counts, used on the dashboard.
+   */
+  favorite_categories?: Array<{
+    name: string
+    count: number
+  }>
   reading_goal_progress: number
+  books_read_this_year?: number
+  books_read_this_month?: number
+  total_time_this_month_seconds?: number
 }
 
 export interface DashboardData {

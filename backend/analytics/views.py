@@ -1,15 +1,16 @@
-from rest_framework import generics, status
+from collections import Counter
+import itertools
+from datetime import timedelta
+
+from django.db.models import Count, Sum
+from django.utils import timezone
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.utils import timezone
-from django.db.models import Count # Import Count for aggregation
-from datetime import datetime, timedelta
-from collections import Counter
-import itertools
 
-# IMPORTANT: Replaced EventLog with the new Django ORM models
-from .models import BookView, SearchQuery 
+from .models import BookView, SearchQuery
+from .serializers import AdminAnalyticsSerializer, UserReadingStatsSerializer
 from catalog.models import Book, Category, BookLike
 from reading.models import ReadingProgress, ReadingSession
 
@@ -98,7 +99,7 @@ def admin_analytics_overview(request):
     # Total reads are now total BookView records
     total_reads = BookView.objects.count()
     
-    return Response({
+    serializer = AdminAnalyticsSerializer({
         'overview': {
             'total_books': total_books,
             'total_categories': total_categories,
@@ -124,6 +125,8 @@ def admin_analytics_overview(request):
             {'term': term, 'count': count} for term, count in top_search_terms
         ]
     })
+    
+    return Response(serializer.data)
 
 
 @api_view(['GET'])
@@ -137,55 +140,74 @@ def user_reading_stats(request):
     end_date = timezone.now()
     start_date = end_date - timedelta(days=30)
     
-    # Reading progress data (using Django ORM filter)
-    # Assuming ReadingProgress.user is a ForeignKey
-    progress_data = ReadingProgress.objects.filter(user_id=user_pk)
-    
-    # Books read this month
+    progress_data = ReadingProgress.objects.filter(user_id=user_pk).select_related('book')
+
+    # Aggregate totals
+    total_books_read = progress_data.filter(completed=True).count()
+    total_time_seconds = progress_data.aggregate(total=Sum('total_time_seconds'))['total'] or 0
+    total_pages_read = sum(
+        progress.book.pages or 0
+        for progress in progress_data.filter(completed=True)
+        if progress.book
+    )
+
+    # Books read this month/year
     books_read_this_month = progress_data.filter(
         completed=True,
         updated_at__gte=start_date
     ).count()
-    
-    # Total reading time this month
+
     total_time_this_month = sum(
         progress.total_time_seconds for progress in 
         progress_data.filter(updated_at__gte=start_date)
     )
-    
+
+    books_read_this_year = progress_data.filter(
+        completed=True,
+        updated_at__year=timezone.now().year
+    ).count()
+
     # Reading streak
     current_streak = 0
+    longest_streak = 0
     today = timezone.now().date()
     
     # Get reading sessions for streak calculation (using Django ORM filter)
     sessions = ReadingSession.objects.filter(user_id=user_pk).order_by('-started_at')
     
     if sessions:
-        last_session_date = sessions[0].started_at.date()
-        
-        # Check if the streak includes today or yesterday
-        if last_session_date == today or last_session_date == today - timedelta(days=1):
+        session_dates = sorted({session.started_at.date() for session in sessions}, reverse=True)
+
+        # Current streak (ending today/yesterday)
+        if session_dates and (session_dates[0] == today or session_dates[0] == today - timedelta(days=1)):
             current_streak = 1
-            for session in sessions[1:]:
-                session_date = session.started_at.date()
-                # Check for consecutive day
-                if session_date == last_session_date - timedelta(days=1):
+            target_date = today if session_dates[0] == today else today - timedelta(days=1)
+            for date in session_dates[1:]:
+                expected = target_date - timedelta(days=1)
+                if date == expected:
                     current_streak += 1
-                    last_session_date = session_date
-                # Break if day is before the last consecutive day
-                elif session_date < last_session_date - timedelta(days=1):
+                    target_date = expected
+                elif date < expected:
                     break
-                # Ignore multiple sessions on the same day
-                # else: pass
-        
-    
+
+        # Longest streak over all dates
+        streak = 0
+        previous_date = None
+        for date in sorted(session_dates):
+            if previous_date and (date - previous_date).days == 1:
+                streak += 1
+            else:
+                streak = 1
+            longest_streak = max(longest_streak, streak)
+            previous_date = date
+
     # Favorite categories
     category_counts = {}
     for progress in progress_data.filter(completed=True):
-        # Accessing ManyToMany field requires .all()
-        for category in progress.book.categories.all():
-            category_name = category.name
-            category_counts[category_name] = category_counts.get(category_name, 0) + 1
+        if progress.book:
+            for category in progress.book.categories.all():
+                category_name = category.name
+                category_counts[category_name] = category_counts.get(category_name, 0) + 1
     
     favorite_categories = sorted(
         category_counts.items(),
@@ -193,21 +215,25 @@ def user_reading_stats(request):
         reverse=True
     )[:5]
     
+    favorite_category_name = favorite_categories[0][0] if favorite_categories else None
+    
     # Reading goal progress (assuming 12 books per year)
-    books_read_this_year = progress_data.filter(
-        completed=True,
-        updated_at__year=timezone.now().year
-    ).count()
-    
     reading_goal_progress = min(books_read_this_year / 12 * 100, 100)
-    
-    return Response({
-        'books_read_this_month': books_read_this_month,
-        'total_time_this_month_seconds': total_time_this_month,
+
+    serializer = UserReadingStatsSerializer({
+        'total_books_read': total_books_read,
+        'total_time_seconds': total_time_seconds,
+        'total_pages_read': total_pages_read,
         'current_streak_days': current_streak,
+        'longest_streak_days': longest_streak,
+        'favorite_category': favorite_category_name,
         'favorite_categories': [
             {'name': name, 'count': count} for name, count in favorite_categories
         ],
         'reading_goal_progress': reading_goal_progress,
-        'books_read_this_year': books_read_this_year
+        'books_read_this_year': books_read_this_year,
+        'books_read_this_month': books_read_this_month,
+        'total_time_this_month_seconds': total_time_this_month
     })
+
+    return Response(serializer.data)
