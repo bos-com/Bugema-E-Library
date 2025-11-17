@@ -60,29 +60,28 @@ A comprehensive e-library management system built with Django REST Framework and
 
 ## 📁 Project Structure
 
-```
 elibrary/
-├── backend/                 # Django backend
-│   ├── elibrary/           # Django project settings
-│   ├── accounts/           # User authentication
-│   ├── catalog/            # Books and categories
-│   ├── reading/            # Reading progress tracking
-│   ├── analytics/          # Analytics and event logging
-│   ├── manage.py
-│   ├── requirements.txt
-│   ├── seed.py            # Database seeding script
-│   └── Dockerfile
-├── frontend/               # React frontend
-│   ├── src/
-│   │   ├── app/           # Pages, layouts, components
-│   │   ├── lib/           # API client, stores, utilities
-│   │   ├── types/         # TypeScript type definitions
-│   │   └── main.tsx
-│   ├── package.json
-│   └── Dockerfile
-├── docker-compose.yml      # Development environment
+├── backend/ # Django backend
+│ ├── elibrary/ # Django project settings
+│ ├── accounts/ # User authentication
+│ ├── catalog/ # Books and categories
+│ ├── reading/ # Reading progress tracking
+│ ├── analytics/ # Analytics and event logging
+│ ├── manage.py
+│ ├── requirements.txt
+│ ├── seed.py # Database seeding script
+│ └── Dockerfile
+├── frontend/ # React frontend
+│ ├── src/
+│ │ ├── app/ # Pages, layouts, components
+│ │ ├── lib/ # API client, stores, utilities
+│ │ ├── types/ # TypeScript type definitions
+│ │ └── main.tsx
+│ ├── package.json
+│ └── Dockerfile
+├── docker-compose.yml # Development environment
 └── README.md
-```
+
 
 ## 🚀 Quick Start
 
@@ -316,4 +315,4 @@ For support, email support@elibrary.com or create an issue in the repository.
 
 ---
 
-Built with ❤️ using Django, React, and MongoDB
+Built with ❤️ using Django, React, and Postgresql

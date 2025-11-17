@@ -50,10 +50,23 @@ class BookViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
 
     def get_queryset(self):
-        # Apply filtering logic based on action
-        if self.action == 'list' or self.action == 'retrieve':
-            return Book.objects.filter(is_published=True)
-        return Book.objects.all()
+        """
+        Base queryset with optional free-text search using ?query=...
+        Frontend sends `query` while DRF's SearchFilter defaults to `search`,
+        so we support both for convenience.
+        """
+        qs = Book.objects.filter(is_published=True) if self.action in ['list', 'retrieve'] else Book.objects.all()
+
+        request = self.request
+        query = request.query_params.get('query') or request.query_params.get('search')
+        if query:
+            qs = qs.filter(
+                Q(title__icontains=query)
+                | Q(author__name__icontains=query)
+                | Q(description__icontains=query)
+                | Q(tags__icontains=query)
+            )
+        return qs
 
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
@@ -166,6 +179,20 @@ def book_read_stream(request, book_id):
             {'error': 'An internal error occurred while streaming the file.'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def book_read_token(request, book_id):
+    """
+    Lightweight endpoint used by the frontend to verify access before opening the reader.
+    For now we just ensure the book exists and the user is authenticated, then return a
+    short-lived opaque token string that the frontend passes back as a query param.
+    """
+    book = get_object_or_404(Book, id=book_id, is_published=True)
+    # Optionally log a BookView here in the future.
+    # For simplicity, the "token" is not validated server-side by the stream view.
+    return Response({'token': f'allowed-{book.id}'}, status=status.HTTP_200_OK)
 
 
 # --- LIKE/BOOKMARK VIEWS ---

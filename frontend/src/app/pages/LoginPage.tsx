@@ -49,7 +49,9 @@ export default function LoginPage() {
 			toast.success("Login successful!");
 			navigate(from, { replace: true });
 		} catch (error: any) {
-			toast.error(error.response?.data?.error || "Login failed");
+			const apiError =
+				error?.response?.data?.error || error?.response?.data?.detail;
+			toast.error(apiError || "Login failed");
 		}
 	};
 

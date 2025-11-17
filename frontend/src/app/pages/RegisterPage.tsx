@@ -54,7 +54,9 @@ export default function RegisterPage() {
 			toast.success("Registration successful!");
 			navigate("/dashboard");
 		} catch (error: any) {
-			toast.error(error.response?.data?.error || "Registration failed");
+			const apiError =
+				error?.response?.data?.error || error?.response?.data?.detail;
+			toast.error(apiError || "Registration failed");
 		}
 	};
 

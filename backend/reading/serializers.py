@@ -6,7 +6,7 @@ class ReadingProgressSerializer(serializers.ModelSerializer):
     """Reading progress serializer"""
     book_title = serializers.CharField(source='book.title', read_only=True)
     book_author = serializers.CharField(source='book.author', read_only=True)
-    book_cover = serializers.CharField(source='book.cover_image', read_only=True)
+    book_cover = serializers.SerializerMethodField()
     
     class Meta:
         model = ReadingProgress
@@ -21,6 +21,16 @@ class ReadingProgressSerializer(serializers.ModelSerializer):
         if not 0 <= value <= 100:
             raise serializers.ValidationError("Percent must be between 0 and 100")
         return value
+
+    def get_book_cover(self, obj):
+        book = getattr(obj, 'book', None)
+        if not book or not book.cover_image:
+            return None
+        request = self.context.get('request')
+        url = book.cover_image.url if hasattr(book.cover_image, 'url') else book.cover_image
+        if request:
+            return request.build_absolute_uri(url)
+        return url
 
 
 class ReadingSessionSerializer(serializers.ModelSerializer):

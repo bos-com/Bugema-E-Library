@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from .models import Category, Book, BookLike, Bookmark, Author 
 from django.contrib.auth import get_user_model
-from django.db.models import Count
 
 # Get the custom User model defined in your Django project
 User = get_user_model()
@@ -9,7 +8,6 @@ User = get_user_model()
 # --- Utility Serializers ---
 
 class CategorySerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(read_only=True)
     book_count = serializers.SerializerMethodField()
     
     class Meta:
@@ -24,11 +22,13 @@ class CategorySerializer(serializers.ModelSerializer):
 # --- Book List and Detail Serializers ---
 
 class BookListSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(read_only=True)
+    author = serializers.CharField(source='author.name', read_only=True)
     categories = CategorySerializer(many=True, read_only=True)
     is_liked = serializers.SerializerMethodField()
     is_bookmarked = serializers.SerializerMethodField()
     reading_progress = serializers.SerializerMethodField()
+    cover_image = serializers.SerializerMethodField()
+    file = serializers.SerializerMethodField()
 
     class Meta:
         model = Book
@@ -69,6 +69,22 @@ class BookListSerializer(serializers.ModelSerializer):
                 return None 
         return None
 
+    def _build_absolute_uri(self, obj, field_name):
+        field = getattr(obj, field_name, None)
+        if not field:
+            return None
+        url = field.url if hasattr(field, 'url') else field
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(url)
+        return url
+
+    def get_cover_image(self, obj):
+        return self._build_absolute_uri(obj, 'cover_image')
+
+    def get_file(self, obj):
+        return self._build_absolute_uri(obj, 'file')
+
 
 class BookDetailSerializer(BookListSerializer):
     class Meta(BookListSerializer.Meta):
@@ -79,8 +95,6 @@ class BookDetailSerializer(BookListSerializer):
 
 # --- Book Creation/Update Serializers ---
 class BookCreateUpdateSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(read_only=True)
-    
     # These fields are for accepting human-readable names during WRITE (Create/Update)
     author_name = serializers.CharField(write_only=True, required=True, max_length=255)
     category_names = serializers.ListField(
@@ -151,8 +165,6 @@ class BookCreateUpdateSerializer(serializers.ModelSerializer):
 # --- Interaction Serializers (Like/Bookmark) ---
 
 class BookLikeSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(read_only=True)
-    
     class Meta:
         model = BookLike
         fields = ['id', 'book', 'created_at'] 
@@ -161,8 +173,6 @@ class BookLikeSerializer(serializers.ModelSerializer):
 
 
 class BookmarkSerializer(serializers.ModelSerializer):
-    id = serializers.UUIDField(read_only=True)
-    
     class Meta:
         model = Bookmark
         fields = ['id', 'location', 'book', 'created_at']

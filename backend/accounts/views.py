@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .models import User
 from .serializers import UserSerializer, UserRegistrationSerializer, CustomTokenObtainPairSerializer
 
@@ -31,51 +31,25 @@ class RegisterView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 
-class LoginView(generics.GenericAPIView):
-    """User login view"""
+class LoginView(TokenObtainPairView):
+    """User login view using JWT pair serializer"""
     serializer_class = CustomTokenObtainPairSerializer
     permission_classes = [AllowAny]
-    
+
+
+class RefreshView(TokenRefreshView):
+    """Refresh JWT access token"""
+    permission_classes = [AllowAny]
+
     def post(self, request, *args, **kwargs):
-        email = request.data.get('email')
-        password = request.data.get('password')
-        
-        if not email or not password:
-            return Response(
-                {'error': 'Email and password are required'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            user = User.objects.get(email=email)
-            if not user.check_password(password):
-                return Response(
-                    {'error': 'Invalid credentials'},
-                    status=status.HTTP_401_UNAUTHORIZED
-                )
-            
-            if not user.is_active:
-                return Response(
-                    {'error': 'Account is deactivated'},
-                    status=status.HTTP_401_UNAUTHORIZED
-                )
-            
-            # Generate JWT tokens
-            refresh = RefreshToken.for_user(user)
-            
-            return Response({
-                'user': UserSerializer(user).data,
-                'tokens': {
-                    'access': str(refresh.access_token),
-                    'refresh': str(refresh)
-                }
-            })
-            
-        except User.DoesNotExist:
-            return Response(
-                {'error': 'Invalid credentials'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        tokens = {
+            'access': data.get('access'),
+            'refresh': data.get('refresh') or request.data.get('refresh')
+        }
+        return Response({'tokens': tokens}, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])

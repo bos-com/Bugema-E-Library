@@ -44,18 +44,27 @@ class ApiClient {
           originalRequest._retry = true
 
           try {
-            const { refreshToken } = useAuthStore.getState()
+            const authState = useAuthStore.getState()
+            const refreshToken = authState.tokens?.refresh
             if (refreshToken) {
               const response = await this.post('/auth/refresh/', {
                 refresh: refreshToken
               })
 
-              const { tokens } = response.data
-              useAuthStore.getState().setTokens(tokens)
+              const tokensPayload =
+                response.data?.tokens ??
+                {
+                  access: response.data?.access,
+                  refresh: response.data?.refresh ?? refreshToken
+                }
 
-              // Retry original request with new token
-              originalRequest.headers.Authorization = `Bearer ${tokens.access}`
-              return this.client(originalRequest)
+              if (tokensPayload?.access) {
+                authState.setTokens(tokensPayload)
+
+                // Retry original request with new token
+                originalRequest.headers.Authorization = `Bearer ${tokensPayload.access}`
+                return this.client(originalRequest)
+              }
             }
           } catch (refreshError) {
             // Refresh failed, logout user
