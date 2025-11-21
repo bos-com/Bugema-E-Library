@@ -8,16 +8,17 @@ from django.db import models
 class UserSerializer(serializers.ModelSerializer):
     """User serializer for API responses (Django ORM/PostgreSQL)"""
     id = serializers.UUIDField(read_only=True) 
-    email = serializers.EmailField(read_only=True)
-    name = serializers.CharField(read_only=True)
+    email = serializers.EmailField()
+    name = serializers.CharField()
     role = serializers.CharField(read_only=True)
     is_active = serializers.BooleanField(read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
+    profile_picture = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = User
        
-        fields = ['id', 'email', 'name', 'role', 'is_active', 'created_at']
+        fields = ['id', 'email', 'name', 'role', 'is_active', 'created_at', 'profile_picture']
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -63,5 +64,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
         # self.user is set by the parent's validate method
-        data['user'] = UserSerializer(self.user).data
-        return data
+        
+        # Nest tokens to match the RegisterView response structure and frontend expectation
+        return {
+            'user': UserSerializer(self.user).data,
+            'tokens': {
+                'access': data['access'],
+                'refresh': data['refresh']
+            }
+        }

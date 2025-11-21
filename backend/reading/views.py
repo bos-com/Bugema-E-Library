@@ -97,145 +97,180 @@ def user_dashboard(request):
     """Get user dashboard data"""
     user = request.user
     
-    # FIX: Converted MongoEngine queries to Django ORM filter()
-    # Get reading progress
-    in_progress = ReadingProgress.objects.filter(
-        user=user,
-        completed=False
-    ).order_by('-last_opened_at')[:10]
-    
-    completed = ReadingProgress.objects.filter(
-        user=user,
-        completed=True
-    ).order_by('-updated_at')[:10]
-    
-    # Get liked books (using select_related for efficiency)
-    liked_books = BookLike.objects.filter(user=user).select_related('book').order_by('-created_at')[:10]
-    # Extract IDs to fetch Book data, ensuring we only get published books
-    liked_book_ids = [like.book_id for like in liked_books]
-    liked_books_data = Book.objects.filter(pk__in=liked_book_ids, is_published=True).order_by('-created_at')
-    
-    # Get bookmarked books
-    bookmarked_books_qs = Bookmark.objects.filter(user=user).select_related('book').order_by('-created_at')[:10]
-    bookmarked_book_ids = [bookmark.book_id for bookmark in bookmarked_books_qs]
-    # Fetch book details
-    bookmarked_books_data = Book.objects.filter(pk__in=bookmarked_book_ids, is_published=True)
-    
-    # Calculate stats
-    total_books_read = ReadingProgress.objects.filter(user=user, completed=True).count()
-    
-    # FIX: Use Django ORM aggregate (Sum) for total_time_seconds
-    time_sum = ReadingProgress.objects.filter(user=user).aggregate(Sum('total_time_seconds'))
-    total_time_seconds = time_sum['total_time_seconds__sum'] or 0
-    
-    # FIX: Calculate total pages read (requires looping as before, unless using annotation/aggregation which is complex here)
-    total_pages_read = sum(
-        progress.book.pages or 0 for progress in 
-        ReadingProgress.objects.filter(user=user, completed=True).select_related('book')
-    )
-    
-    # Calculate reading streak
-    # FIX: Converted MongoEngine query to Django ORM filter()
-    current_streak_days = 0
-    longest_streak = 0
-    today = timezone.now().date()
-    
-    # FIX: Converted MongoEngine query to Django ORM filter()
-    sessions = ReadingSession.objects.filter(user=user).order_by('-started_at')
-    
-    # (Streak logic remains Python-based and uses standard objects)
-    if sessions:
-        # Note: The original streak logic was overly simple and prone to error.
-        # This basic version maintains the original intent:
+    try:
+        # FIX: Converted MongoEngine queries to Django ORM filter()
+        # Get reading progress
+        in_progress = ReadingProgress.objects.filter(
+            user=user,
+            completed=False
+        ).order_by('-last_opened_at')[:10]
         
-        # Get unique dates of reading sessions
-        # NOTE: This is slightly complex in pure Django ORM for distinct dates, 
-        # so we'll fetch objects and process dates in Python for simplicity.
-        session_dates = sorted(
-            list(set(s.started_at.date() for s in sessions)), 
-            reverse=True
+        completed = ReadingProgress.objects.filter(
+            user=user,
+            completed=True
+        ).order_by('-updated_at')[:10]
+        
+        # Get liked books (using select_related for efficiency)
+        liked_books = BookLike.objects.filter(user=user).select_related('book').order_by('-created_at')[:10]
+        # Extract IDs to fetch Book data, ensuring we only get published books
+        liked_book_ids = [like.book_id for like in liked_books]
+        liked_books_data = Book.objects.filter(pk__in=liked_book_ids, is_published=True).order_by('-created_at')
+        
+        # Get bookmarked books
+        bookmarked_books_qs = Bookmark.objects.filter(user=user).select_related('book').order_by('-created_at')[:10]
+        bookmarked_book_ids = [bookmark.book_id for bookmark in bookmarked_books_qs]
+        # Fetch book details
+        bookmarked_books_data = Book.objects.filter(pk__in=bookmarked_book_ids, is_published=True)
+        
+        # Calculate stats
+        total_books_read = ReadingProgress.objects.filter(user=user, completed=True).count()
+        
+        # FIX: Use Django ORM aggregate (Sum) for total_time_seconds
+        time_sum = ReadingProgress.objects.filter(user=user).aggregate(Sum('total_time_seconds'))
+        total_time_seconds = time_sum['total_time_seconds__sum'] or 0
+        
+        # FIX: Calculate total pages read (requires looping as before, unless using annotation/aggregation which is complex here)
+        total_pages_read = sum(
+            progress.book.pages or 0 for progress in 
+            ReadingProgress.objects.filter(user=user, completed=True).select_related('book')
         )
-
-        # Calculate current streak
-        current_streak = 0
-        target_date = today
         
-        # If the last session was today or yesterday
-        if session_dates and (session_dates[0] == today or session_dates[0] == today - timedelta(days=1)):
-            current_streak = 1
-            if session_dates[0] == today:
-                target_date -= timedelta(days=1)
-            else: # session_dates[0] == today - timedelta(days=1)
-                target_date -= timedelta(days=2)
+        # Calculate reading streak
+        # FIX: Converted MongoEngine query to Django ORM filter()
+        current_streak_days = 0
+        longest_streak = 0
+        today = timezone.now().date()
+        
+        # FIX: Converted MongoEngine query to Django ORM filter()
+        sessions = ReadingSession.objects.filter(user=user).order_by('-started_at')
+        
+        # (Streak logic remains Python-based and uses standard objects)
+        if sessions:
+            # Note: The original streak logic was overly simple and prone to error.
+            # This basic version maintains the original intent:
             
-            # Iterate backwards through dates
-            for date in session_dates[1:]:
-                if date == target_date:
-                    current_streak += 1
+            # Get unique dates of reading sessions
+            # NOTE: This is slightly complex in pure Django ORM for distinct dates, 
+            # so we'll fetch objects and process dates in Python for simplicity.
+            session_dates = sorted(
+                list(set(s.started_at.date() for s in sessions)), 
+                reverse=True
+            )
+
+            # Calculate current streak
+            current_streak = 0
+            target_date = today
+            
+            # If the last session was today or yesterday
+            if session_dates and (session_dates[0] == today or session_dates[0] == today - timedelta(days=1)):
+                current_streak = 1
+                if session_dates[0] == today:
                     target_date -= timedelta(days=1)
-                elif date < target_date:
-                    break
+                else: # session_dates[0] == today - timedelta(days=1)
+                    target_date -= timedelta(days=2)
+                
+                # Iterate backwards through dates
+                for date in session_dates[1:]:
+                    if date == target_date:
+                        current_streak += 1
+                        target_date -= timedelta(days=1)
+                    elif date < target_date:
+                        break
+            
+            current_streak_days = current_streak
+            # Longest streak calculation is complex and skipped for this fix, 
+            # as it was likely incomplete/placeholder in the original Mongo code.
         
-        current_streak_days = current_streak
-        # Longest streak calculation is complex and skipped for this fix, 
-        # as it was likely incomplete/placeholder in the original Mongo code.
+        # Get favorite category
+        favorite_category = None
+        category_counts = {}
+        # FIX: Ensure we select related 'book' for efficiency
+        for progress in ReadingProgress.objects.filter(user=user, completed=True).select_related('book'):
+            if progress.book_id:
+                for category in progress.book.categories.all():
+                    category_name = category.name
+                    if category_name:
+                        category_counts[category_name] = category_counts.get(category_name, 0) + 1
+        
+        if category_counts:
+            favorite_category = max(category_counts, key=category_counts.get)
+        else:
+            favorite_category = None
+        
+        # Reading goal progress (assuming 12 books per year)
+        reading_goal_progress = min(total_books_read / 12 * 100, 100)
+        
+        # Get total likes and bookmarks for this user
+        total_likes = BookLike.objects.filter(user=user).count()
+        total_bookmarks = Bookmark.objects.filter(user=user).count()
+        
+        stats = {
+            'total_books_read': total_books_read,
+            'total_time_seconds': total_time_seconds,
+            'total_pages_read': total_pages_read,
+            'current_streak_days': current_streak_days,
+            'longest_streak_days': longest_streak, # Still 0/placeholder
+            'favorite_category': favorite_category,
+            'reading_goal_progress': reading_goal_progress,
+            'total_likes': total_likes,
+            'total_bookmarks': total_bookmarks,
+        }
+        
+        # Mapping logic for response data remains the same
+        serializer_context = {'request': request}
+        response_data = {
+            'in_progress': ReadingProgressSerializer(in_progress, many=True, context=serializer_context).data,
+            'completed': ReadingProgressSerializer(completed, many=True, context=serializer_context).data,
+            'liked_books': [
+                {
+                    'id': str(book.id),
+                    'title': book.title,
+                    'author': book.author,
+                    'cover_image': _absolute_media_url(request, book.cover_image),
+                    'created_at': book.created_at
+                } for book in liked_books_data
+            ],
+            'bookmarked_books': [
+                {
+                    'id': str(book.id),
+                    'title': book.title,
+                    'author': book.author,
+                    'cover_image': _absolute_media_url(request, book.cover_image),
+                    # Need to find the corresponding bookmark object
+                    'location': next((b.location for b in bookmarked_books_qs if b.book_id == book.id), None),
+                    'created_at': next((b.created_at for b in bookmarked_books_qs if b.book_id == book.id), None),
+                } for book in bookmarked_books_data
+            ],
+            'stats': stats
+        }
+        
+        return Response(response_data)
     
-    # Get favorite category
-    favorite_category = None
-    category_counts = {}
-    # FIX: Ensure we select related 'book' for efficiency
-    for progress in ReadingProgress.objects.filter(user=user, completed=True).select_related('book'):
-        if progress.book_id:
-            for category in progress.book.categories.all():
-                category_name = category.name
-                if category_name:
-                    category_counts[category_name] = category_counts.get(category_name, 0) + 1
-    
-    if category_counts:
-        favorite_category = max(category_counts, key=category_counts.get)
-    
-    # Reading goal progress (assuming 12 books per year)
-    reading_goal_progress = min(total_books_read / 12 * 100, 100)
-    
-    stats = {
-        'total_books_read': total_books_read,
-        'total_time_seconds': total_time_seconds,
-        'total_pages_read': total_pages_read,
-        'current_streak_days': current_streak_days,
-        'longest_streak_days': longest_streak, # Still 0/placeholder
-        'favorite_category': favorite_category,
-        'reading_goal_progress': reading_goal_progress
-    }
-    
-    # Mapping logic for response data remains the same
-    serializer_context = {'request': request}
-    response_data = {
-        'in_progress': ReadingProgressSerializer(in_progress, many=True, context=serializer_context).data,
-        'completed': ReadingProgressSerializer(completed, many=True, context=serializer_context).data,
-        'liked_books': [
-            {
-                'id': str(book.id),
-                'title': book.title,
-                'author': book.author,
-                'cover_image': _absolute_media_url(request, book.cover_image),
-                'created_at': book.created_at
-            } for book in liked_books_data
-        ],
-        'bookmarked_books': [
-            {
-                'id': str(book.id),
-                'title': book.title,
-                'author': book.author,
-                'cover_image': _absolute_media_url(request, book.cover_image),
-                # Need to find the corresponding bookmark object
-                'location': next((b.location for b in bookmarked_books_qs if b.book_id == book.id), None),
-                'created_at': next((b.created_at for b in bookmarked_books_qs if b.book_id == book.id), None),
-            } for book in bookmarked_books_data
-        ],
-        'stats': stats
-    }
-    
-    return Response(response_data)
+    except Exception as e:
+        # Log the error for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Dashboard error for user {user.id}: {str(e)}", exc_info=True)
+        
+        # Return a graceful error response
+        return Response({
+            'error': 'Unable to load dashboard data',
+            'in_progress': [],
+            'completed': [],
+            'liked_books': [],
+            'bookmarked_books': [],
+            'stats': {
+                'total_books_read': 0,
+                'total_time_seconds': 0,
+                'total_pages_read': 0,
+                'current_streak_days': 0,
+                'longest_streak_days': 0,
+                'favorite_category': None,
+                'reading_goal_progress': 0,
+                'total_likes': 0,
+                'total_bookmarks': 0,
+            }
+        }, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])

@@ -4,6 +4,7 @@ from django.db import models
 # Import necessary base classes and manager for custom authentication
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin 
 from django.contrib.auth.hashers import make_password, check_password # Still used for backward compatibility with your methods
+from cloudinary.models import CloudinaryField
 import uuid
 
 
@@ -51,6 +52,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     # The 'password' field is automatically managed by AbstractBaseUser, 
     # but we'll keep the CharField definition for compatibility with your existing code logic.
     password = models.CharField(max_length=255) 
+    
+    # Profile picture stored in Cloudinary
+    profile_picture = CloudinaryField('profile_pictures', null=True, blank=True)
 
     # Role field
     class Role(models.TextChoices):

@@ -69,8 +69,20 @@ def logout(request):
             token = RefreshToken(refresh_token)
             token.blacklist()
         return Response({'message': 'Successfully logged out'})
-    except Exception as e:
-        return Response(
-            {'error': 'Invalid token'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    except Exception:
+        # Even if the token is invalid/expired, we consider the user logged out
+        return Response({'message': 'Successfully logged out'})
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_profile(request):
+    """Update user profile"""
+    user = request.user
+    serializer = UserSerializer(user, data=request.data, partial=True)
+    
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
