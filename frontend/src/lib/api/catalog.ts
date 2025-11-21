@@ -1,127 +1,110 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiClient } from './client'
-import { Book, Category, SearchFilters, SearchSuggestion, PaginatedResponse } from '@/types'
+import api from './client';
+import type { BookDetail, BookSummary, Category, PaginatedResponse } from '../types';
 
-export const useCategories = () => {
-  return useQuery({
-    queryKey: ['catalog', 'categories'],
-    queryFn: async () => {
-      const response = await apiClient.get<Category[]>('/catalog/categories/')
-      return response.data
-    },
-  })
+export const getCategories = async () => {
+  const { data } = await api.get<PaginatedResponse<Category> | Category[]>('/catalog/categories/');
+  return data;
+};
+
+export const createCategory = async (payload: { name: string; description?: string }) => {
+  const { data } = await api.post<Category>('/catalog/categories/', payload);
+  return data;
+};
+
+export interface BookFilters {
+  page?: number;
+  query?: string;
+  categories__id?: number;
+  ordering?: string;
 }
 
-export const useBooks = (filters: SearchFilters = {}) => {
-  return useQuery({
-    queryKey: ['catalog', 'books', filters],
-    queryFn: async () => {
-      const params = new URLSearchParams()
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          params.append(key, String(value))
-        }
-      })
-      
-      const response = await apiClient.get<PaginatedResponse<Book>>(`/catalog/books/?${params}`)
-      return response.data
-    },
-  })
+export const getBooks = async (params?: BookFilters) => {
+  const { data } = await api.get<PaginatedResponse<BookSummary>>('/catalog/books/', { params });
+  return data;
+};
+
+export const getBookDetail = async (bookId: string | number) => {
+  const { data } = await api.get<BookDetail>(`/catalog/books/${bookId}/`);
+  return data;
+};
+
+export const getBookFileUrl = async (bookId: string | number) => {
+  const { data } = await api.get<{ url: string }>(`/catalog/books/${bookId}/file/`);
+  return data.url;
+};
+
+export const streamBookContent = async (bookId: string | number) => {
+  const response = await api.get(`/catalog/books/${bookId}/read/stream/`, {
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
+export const toggleLike = async (bookId: number) => {
+  const { data } = await api.post<{ liked: boolean; like_count: number }>(
+    `/catalog/books/${bookId}/like/`
+  );
+  return data;
+};
+
+export const toggleBookmark = async (bookId: number, location?: string) => {
+  const { data } = await api.post<{ bookmarked: boolean; bookmark_count: number }>(
+    `/catalog/books/${bookId}/bookmark/`,
+    { location }
+  );
+  return data;
+};
+
+export interface BookPayload {
+  title: string;
+  description: string;
+  language: string;
+  year?: number;
+  isbn: string;
+  pages?: number;
+  file?: File | null;
+  cover_image?: File | null;
+  file_type: 'PDF' | 'EPUB' | 'VIDEO';
+  is_published: boolean;
+  tags: string[];
+  author_name: string;
+  category_names: string[];
 }
 
-export const useBook = (id: string) => {
-  return useQuery({
-    queryKey: ['catalog', 'books', id],
-    queryFn: async () => {
-      const response = await apiClient.get<Book>(`/catalog/books/${id}/`)
-      return response.data
-    },
-    enabled: !!id,
-  })
-}
+const toFormData = (payload: Partial<BookPayload>) => {
+  const form = new FormData();
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+    if (key === 'category_names' && Array.isArray(value)) {
+      value.forEach((name) => form.append('category_names', name));
+    } else if (key === 'tags' && Array.isArray(value)) {
+      form.append('tags', JSON.stringify(value));
+    } else if (value instanceof File) {
+      form.append(key, value);
+    } else {
+      form.append(key, String(value));
+    }
+  });
+  return form;
+};
 
-export const useSearchSuggestions = (query: string) => {
-  return useQuery({
-    queryKey: ['catalog', 'search-suggestions', query],
-    queryFn: async () => {
-      const response = await apiClient.get<{ suggestions: SearchSuggestion[] }>(`/catalog/search/suggestions/?query=${encodeURIComponent(query)}`)
-      return response.data.suggestions
-    },
-    enabled: query.length >= 2,
-  })
-}
+const ensureFormData = (payload: BookPayload | FormData | Partial<BookPayload>) =>
+  payload instanceof FormData ? payload : toFormData(payload);
 
-export const useToggleLike = () => {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: async (bookId: string) => {
-      const response = await apiClient.post<{ liked: boolean; like_count: number }>(`/catalog/books/${bookId}/like/`)
-      return { bookId, ...response.data }
-    },
-    onSuccess: ({ bookId, liked, like_count }) => {
-      // Update book detail cache
-      queryClient.setQueryData(['catalog', 'books', bookId], (old: Book | undefined) => {
-        if (old) {
-          return { ...old, is_liked: liked, like_count }
-        }
-        return old
-      })
-      
-      // Update books list cache
-      queryClient.setQueriesData({ queryKey: ['catalog', 'books'] }, (old: any) => {
-        if (old?.results) {
-          return {
-            ...old,
-            results: old.results.map((book: Book) =>
-              book.id === bookId ? { ...book, is_liked: liked, like_count } : book
-            )
-          }
-        }
-        return old
-      })
-    },
-  })
-}
+export const createBook = async (payload: BookPayload | FormData) => {
+  const { data } = await api.post<BookDetail>('/catalog/books/', ensureFormData(payload), {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+};
 
-export const useToggleBookmark = () => {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: async ({ bookId, location }: { bookId: string; location: string }) => {
-      const response = await apiClient.post<{ bookmarked: boolean; bookmark_count: number }>(`/catalog/books/${bookId}/bookmark/`, { location })
-      return { bookId, ...response.data }
-    },
-    onSuccess: ({ bookId, bookmarked, bookmark_count }) => {
-      // Update book detail cache
-      queryClient.setQueryData(['catalog', 'books', bookId], (old: Book | undefined) => {
-        if (old) {
-          return { ...old, is_bookmarked: bookmarked, bookmark_count }
-        }
-        return old
-      })
-      
-      // Update books list cache
-      queryClient.setQueriesData({ queryKey: ['catalog', 'books'] }, (old: any) => {
-        if (old?.results) {
-          return {
-            ...old,
-            results: old.results.map((book: Book) =>
-              book.id === bookId ? { ...book, is_bookmarked: bookmarked, bookmark_count } : book
-            )
-          }
-        }
-        return old
-      })
-    },
-  })
-}
+export const updateBook = async (bookId: number, payload: Partial<BookPayload> | FormData) => {
+  const { data } = await api.patch<BookDetail>(`/catalog/books/${bookId}/`, ensureFormData(payload), {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+};
 
-export const useReadToken = () => {
-  return useMutation({
-    mutationFn: async (bookId: string) => {
-      const response = await apiClient.get<{ token: string }>(`/catalog/books/${bookId}/read/token/`)
-      return response.data.token
-    },
-  })
-}
+export const deleteBook = async (bookId: number) => {
+  await api.delete(`/catalog/books/${bookId}/`);
+};

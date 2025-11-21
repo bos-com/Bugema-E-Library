@@ -1,169 +1,86 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Search, BookOpen, Users, Star } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/app/components/ui/card";
-import { useCategories } from "@/lib/api/catalog";
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { getBooks, getCategories } from '../../lib/api/catalog';
+import StatCard from '../../components/cards/StatCard';
+import LoadingOverlay from '../../components/feedback/LoadingOverlay';
 
-export default function HomePage() {
-	const [searchQuery, setSearchQuery] = useState("");
-	const navigate = useNavigate();
-	const { data: categories, isLoading } = useCategories();
+const HomePage = () => {
+  const { data: categoriesData } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
+  // Handle both array (if pagination disabled) and paginated response
+  const categories = Array.isArray(categoriesData)
+    ? categoriesData
+    : (categoriesData as any)?.results ?? [];
+  console.log('HomePage rendering, categories:', categories, 'isArray:', Array.isArray(categories));
+  const { data: books, isLoading } = useQuery({
+    queryKey: ['books', 'featured'],
+    queryFn: () => getBooks({ ordering: '-view_count', page: 1 }),
+  });
 
-	const handleSearch = (e: React.FormEvent) => {
-		e.preventDefault();
-		if (searchQuery.trim()) {
-			navigate(
-				`/catalog?query=${encodeURIComponent(searchQuery.trim())}`
-			);
-		}
-	};
+  return (
+    <div className="space-y-12">
+      <section className="grid gap-10 lg:grid-cols-2">
+        <div className="space-y-6">
+          <p className="text-sm uppercase tracking-[0.4em] text-brand-300">Bugema Digital Library</p>
+          <h1 className="text-4xl font-semibold text-white md:text-5xl">
+            Seamless reading with resilient authentication.
+          </h1>
+          <p className="text-lg text-slate-300">
+            Enjoy automatic token rotation, admin observability, and a polished interface wired directly to the
+            high-performance Django backend.
+          </p>
+          <div className="flex flex-wrap gap-4">
+            <Link to="/catalog" className="btn-primary">
+              Browse Library
+            </Link>
+            <Link to="/dashboard" className="rounded-lg border border-white/10 px-4 py-2 text-sm font-semibold text-white">
+              My Dashboard
+            </Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <StatCard label="Categories" value={categories?.length ?? 0} hint="Curated subjects" />
+            <StatCard label="Featured books" value={books?.results.length ?? 0} hint="Updated hourly" />
+          </div>
+        </div>
+        <div className="card border-white/10 bg-gradient-to-br from-brand-500/10 to-slate-900/80 p-6">
+          <h2 className="text-lg font-semibold text-white">Latest arrivals</h2>
+          {isLoading && <LoadingOverlay label="Loading featured books" />}
+          <div className="mt-4 space-y-4">
+            {books?.results?.slice(0, 4).map((book) => (
+              <Link
+                to={`/catalog/${book.id}`}
+                key={book.id}
+                className="flex items-start justify-between rounded-xl border border-white/5 bg-white/5 p-4 transition hover:bg-white/10"
+              >
+                <div>
+                  <p className="font-semibold text-white">{book.title}</p>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">{book.author}</p>
+                </div>
+                <span className="text-xs text-slate-400">{book.language}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
 
-	return (
-		<div className="min-h-screen">
-			{/* Hero Section */}
-			<section className="bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-20">
-				<div className="container mx-auto px-4">
-					<div className="max-w-4xl mx-auto text-center">
-						<h1 className="text-4xl md:text-6xl font-bold mb-6">
-							Welcome to{" "}
-							<span className="text-primary">E-Library</span>
-						</h1>
-						<p className="text-xl text-muted-foreground mb-8">
-							Discover, read, and enjoy thousands of books from
-							our digital collection. Your personal library is
-							just a click away.
-						</p>
+      <section>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-white">Browse by category</h2>
+          <Link to="/catalog" className="text-sm text-slate-400">
+            View all →
+          </Link>
+        </div>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.isArray(categories) ? categories.map((category) => (
+            <div key={category.id} className="card border-white/5 p-5">
+              <p className="text-sm uppercase tracking-wide text-brand-200">{category.name}</p>
+              <p className="mt-2 text-xs text-slate-400">{category.description ?? 'No description provided.'}</p>
+              <p className="mt-4 text-xs text-slate-500">{category.book_count ?? 0} books</p>
+            </div>
+          )) : null}
+        </div>
+      </section>
+    </div>
+  );
+};
 
-						{/* Search Bar */}
-						<form
-							onSubmit={handleSearch}
-							className="max-w-2xl mx-auto"
-						>
-							<div className="flex gap-2">
-								<div className="relative flex-1">
-									<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-									<input
-										type="text"
-										placeholder="Search for books, authors, or topics..."
-										value={searchQuery}
-										onChange={(e) =>
-											setSearchQuery(e.target.value)
-										}
-										className="w-full pl-10 pr-4 py-3 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
-									/>
-								</div>
-								<Button type="submit" size="lg">
-									Search
-								</Button>
-							</div>
-						</form>
-					</div>
-				</div>
-			</section>
-
-			{/* Features Section */}
-			<section className="py-16">
-				<div className="container mx-auto px-4">
-					<div className="grid md:grid-cols-3 gap-8">
-						<Card>
-							<CardHeader>
-								<BookOpen className="h-8 w-8 text-primary mb-2" />
-								<CardTitle>Read Online</CardTitle>
-								<CardDescription>
-									Access thousands of books instantly. No
-									downloads required.
-								</CardDescription>
-							</CardHeader>
-						</Card>
-
-						<Card>
-							<CardHeader>
-								<Users className="h-8 w-8 text-primary mb-2" />
-								<CardTitle>Track Progress</CardTitle>
-								<CardDescription>
-									Keep track of your reading progress and
-									continue where you left off.
-								</CardDescription>
-							</CardHeader>
-						</Card>
-
-						<Card>
-							<CardHeader>
-								<Star className="h-8 w-8 text-primary mb-2" />
-								<CardTitle>Personal Library</CardTitle>
-								<CardDescription>
-									Like, bookmark, and organize your favorite
-									books in one place.
-								</CardDescription>
-							</CardHeader>
-						</Card>
-					</div>
-				</div>
-			</section>
-
-			{/* Categories Section */}
-			<section className="py-16 bg-muted/50">
-				<div className="container mx-auto px-4">
-					<h2 className="text-3xl font-bold text-center mb-12">
-						Browse Categories
-					</h2>
-
-					{isLoading ? (
-						<div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-							{[...Array(8)].map((_, i) => (
-								<Card key={i} className="animate-pulse">
-									<CardContent className="p-6">
-										<div className="h-4 bg-muted rounded mb-2"></div>
-										<div className="h-3 bg-muted rounded w-2/3"></div>
-									</CardContent>
-								</Card>
-							))}
-						</div>
-					) : (
-						<div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-							{categories?.slice(0, 8).map((category) => (
-								<Card
-									key={category.id}
-									className="cursor-pointer hover:shadow-lg transition-shadow"
-									onClick={() =>
-										navigate(
-											`/catalog?category=${category.slug}`
-										)
-									}
-								>
-									<CardContent className="p-6">
-										<h3 className="font-semibold mb-2">
-											{category.name}
-										</h3>
-										<p className="text-sm text-muted-foreground mb-2">
-											{category.description}
-										</p>
-										<p className="text-xs text-primary">
-											{category.book_count} books
-										</p>
-									</CardContent>
-								</Card>
-							))}
-						</div>
-					)}
-
-					<div className="text-center mt-8">
-						<Button
-							variant="outline"
-							onClick={() => navigate("/catalog")}
-						>
-							View All Categories
-						</Button>
-					</div>
-				</div>
-			</section>
-		</div>
-	);
-}
+export default HomePage;

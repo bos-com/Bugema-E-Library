@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+body {
+  @apply bg-white text-slate-900 transition-colors duration-200;
+}
+
+body.dark {
+  @apply bg-slate-950 text-white;
+}
+
+a {
+  @apply text-brand-400 hover:text-brand-300 transition-colors;
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white shadow-lg shadow-brand-900/40 transition hover:bg-brand-600;
+}
+
+.btn-gradient-red {
+  @apply inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-red-500 to-red-600 px-4 py-2 font-semibold text-white shadow-lg shadow-red-500/30 transition hover:from-red-600 hover:to-red-700 hover:shadow-xl hover:shadow-red-500/40;
+}
+
+.btn-gradient-blue {
+  @apply inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-2 font-semibold text-white shadow-lg shadow-blue-500/30 transition hover:from-blue-600 hover:to-blue-700 hover:shadow-xl hover:shadow-blue-500/40;
+}
+
+.btn-icon {
+  @apply inline-flex items-center justify-center rounded-lg p-2 transition-all duration-200 hover:scale-110;
+}
+
+.card {
+  @apply rounded-xl border bg-white border-slate-200 p-4 shadow-sm transition-all duration-200 hover:shadow-md;
+}
+
+.dark .card {
+  @apply bg-slate-900/50 border-white/10 shadow-none hover:bg-slate-900/70;
+}
+
+/* Improved text contrast */
+.text-contrast {
+  @apply text-slate-900 dark:text-white;
+}
+
+.text-contrast-secondary {
+  @apply text-slate-600 dark:text-slate-300;
+}

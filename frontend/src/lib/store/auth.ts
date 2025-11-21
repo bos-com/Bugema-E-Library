@@ -1,117 +1,48 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { User, AuthTokens, LoginRequest, RegisterRequest, AuthResponse } from '@/types'
-import { apiClient } from '@/lib/api/client'
+import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import type { User } from '../types';
 
 interface AuthState {
-  user: User | null
-  tokens: AuthTokens | null
-  isLoading: boolean
-  isAuthenticated: boolean
-  login: (credentials: LoginRequest) => Promise<void>
-  register: (userData: RegisterRequest) => Promise<void>
-  logout: () => void
-  checkAuth: () => Promise<void>
-  setTokens: (tokens: AuthTokens | null) => void
-  setUser: (user: User | null) => void
+  user: User | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  isHydrated: boolean;
+  setSession: (payload: { user: User; accessToken: string; refreshToken: string }) => void;
+  setTokens: (tokens: { accessToken: string; refreshToken?: string }) => void;
+  setUser: (user: User | null) => void;
+  clearSession: () => void;
+  markHydrated: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
-      tokens: null,
-      isLoading: false,
-      isAuthenticated: false,
-
-      login: async (credentials: LoginRequest) => {
-        set({ isLoading: true })
-        try {
-          const response = await apiClient.post<AuthResponse>('/auth/login/', credentials)
-          const { user, tokens } = response.data
-          
-          set({
-            user,
-            tokens,
-            isAuthenticated: true,
-            isLoading: false
-          })
-        } catch (error) {
-          set({ isLoading: false })
-          throw error
-        }
-      },
-
-      register: async (userData: RegisterRequest) => {
-        set({ isLoading: true })
-        try {
-          const response = await apiClient.post<AuthResponse>('/auth/register/', userData)
-          const { user, tokens } = response.data
-          
-          set({
-            user,
-            tokens,
-            isAuthenticated: true,
-            isLoading: false
-          })
-        } catch (error) {
-          set({ isLoading: false })
-          throw error
-        }
-      },
-
-      logout: () => {
-        set({
-          user: null,
-          tokens: null,
-          isAuthenticated: false,
-          isLoading: false
-        })
-      },
-
-      checkAuth: async () => {
-        const { tokens } = get()
-        if (!tokens?.access) {
-          set({ isLoading: false })
-          return
-        }
-
-        set({ isLoading: true })
-        try {
-          const response = await apiClient.get<User>('/auth/me/')
-          set({
-            user: response.data,
-            isAuthenticated: true,
-            isLoading: false
-          })
-        } catch (error) {
-          set({
-            user: null,
-            tokens: null,
-            isAuthenticated: false,
-            isLoading: false
-          })
-        }
-      },
-
-      setTokens: (tokens: AuthTokens | null) => {
-        set({ tokens })
-      },
-
-      setUser: (user: User | null) => {
-        set({
-          user,
-          isAuthenticated: !!user
-        })
-      }
+      accessToken: null,
+      refreshToken: null,
+      isHydrated: false,
+      setSession: ({ user, accessToken, refreshToken }) =>
+        set({ user, accessToken, refreshToken }),
+      setTokens: ({ accessToken, refreshToken }) =>
+        set((state) => ({
+          accessToken,
+          refreshToken: refreshToken ?? state.refreshToken,
+        })),
+      setUser: (user) => set({ user }),
+      clearSession: () => set({ user: null, accessToken: null, refreshToken: null }),
+      markHydrated: () => set({ isHydrated: true }),
     }),
     {
-      name: 'auth-storage',
+      name: 'elibrary-auth-v2',
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
-        tokens: state.tokens,
-        isAuthenticated: state.isAuthenticated
-      })
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.markHydrated();
+      },
     }
   )
-)
+);

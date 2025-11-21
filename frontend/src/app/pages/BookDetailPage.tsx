@@ -1,286 +1,96 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { Heart, Bookmark, Play, ArrowLeft } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/app/components/ui/card";
-import {
-	useBook,
-	useToggleLike,
-	useToggleBookmark,
-	useReadToken,
-} from "@/lib/api/catalog";
-import { useAuthStore } from "@/lib/store/auth";
-import LoadingSpinner from "@/app/components/LoadingSpinner";
-import toast from "react-hot-toast";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useParams } from 'react-router-dom';
+import { getBookDetail, toggleBookmark, toggleLike } from '../../lib/api/catalog';
+import LoadingOverlay from '../../components/feedback/LoadingOverlay';
+import { useAuthStore } from '../../lib/store/auth';
 
-export default function BookDetailPage() {
-	const { id } = useParams<{ id: string }>();
-	const navigate = useNavigate();
-	const { isAuthenticated } = useAuthStore();
+const BookDetailPage = () => {
+  const { bookId } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
 
-	const { data: book, isLoading } = useBook(id!);
-	const toggleLikeMutation = useToggleLike();
-	const toggleBookmarkMutation = useToggleBookmark();
-	const readTokenMutation = useReadToken();
+  const { data: book, isLoading } = useQuery({
+    queryKey: ['book', bookId],
+    queryFn: () => getBookDetail(bookId!),
+    enabled: Boolean(bookId),
+  });
 
-	const handleLike = async () => {
-		if (!isAuthenticated) {
-			toast.error("Please login to like books");
-			return;
-		}
-		try {
-			await toggleLikeMutation.mutateAsync(id!);
-		} catch (error) {
-			toast.error("Failed to update like status");
-		}
-	};
+  const likeMutation = useMutation({
+    mutationFn: () => toggleLike(Number(bookId)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['book', bookId] }),
+  });
 
-	const handleBookmark = async () => {
-		if (!isAuthenticated) {
-			toast.error("Please login to bookmark books");
-			return;
-		}
-		try {
-			await toggleBookmarkMutation.mutateAsync({
-				bookId: id!,
-				location: "0",
-			});
-		} catch (error) {
-			toast.error("Failed to update bookmark status");
-		}
-	};
+  const bookmarkMutation = useMutation({
+    mutationFn: () => toggleBookmark(Number(bookId)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['book', bookId] }),
+  });
 
-	const handleRead = async () => {
-		if (!isAuthenticated) {
-			toast.error("Please login to read books");
-			return;
-		}
-		try {
-			const token = await readTokenMutation.mutateAsync(id!);
-			navigate(`/book/${id}/read?token=${token}`);
-		} catch (error) {
-			toast.error("Failed to get reading access");
-		}
-	};
+  if (isLoading || !book) {
+    return <LoadingOverlay label="Loading book details" />;
+  }
 
-	if (isLoading) {
-		return <LoadingSpinner size="lg" />;
-	}
+  return (
+    <div className="space-y-6">
+      <button onClick={() => navigate(-1)} className="text-sm text-slate-400">
+        ← Back to list
+      </button>
 
-	if (!book) {
-		return (
-			<div className="container mx-auto px-4 py-8 text-center">
-				<h1 className="text-2xl font-bold mb-4">Book not found</h1>
-				<Button onClick={() => navigate("/catalog")}>
-					<ArrowLeft className="h-4 w-4 mr-2" />
-					Back to Catalog
-				</Button>
-			</div>
-		);
-	}
+      <div className="card grid gap-8 border-white/10 p-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <p className="text-xs uppercase tracking-[0.4em] text-brand-300">{book.author}</p>
+          <h1 className="mt-2 text-4xl font-semibold text-white">{book.title}</h1>
+          <p className="mt-4 text-slate-300">{book.description}</p>
+          <div className="mt-6 grid gap-4 text-sm text-slate-400 sm:grid-cols-2">
+            <p>Language: {book.language}</p>
+            <p>Year: {book.year ?? '—'}</p>
+            <p>Pages: {book.pages ?? '—'}</p>
+            <p>ISBN: {book.isbn}</p>
+          </div>
+          <div className="mt-6 flex flex-wrap gap-2 text-xs text-slate-500">
+            {Array.isArray(book.tags) && book.tags.map((tag) => (
+              <span key={tag} className="rounded-full border border-white/10 px-3 py-1">
+                #{tag}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+            <p className="text-xs uppercase text-slate-500">Stats</p>
+            <p className="mt-3">Views • {book.view_count}</p>
+            <p>Likes • {book.like_count}</p>
+            <p>Bookmarks • {book.bookmark_count}</p>
+          </div>
+          {user ? (
+            <div className="space-y-2">
+              <button className="btn-primary w-full" onClick={() => navigate(`/reader/${book.id}`)}>
+                Open reader
+              </button>
+              <div className="flex gap-2">
+                <button
+                  className={`w-1/2 rounded-lg border px-3 py-2 text-sm font-semibold ${book.is_liked ? 'border-brand-400 text-brand-200' : 'border-white/10 text-white'
+                    }`}
+                  onClick={() => likeMutation.mutate()}
+                >
+                  ♥ Like
+                </button>
+                <button
+                  className={`w-1/2 rounded-lg border px-3 py-2 text-sm font-semibold ${book.is_bookmarked ? 'border-brand-400 text-brand-200' : 'border-white/10 text-white'
+                    }`}
+                  onClick={() => bookmarkMutation.mutate()}
+                >
+                  ⌁ Bookmark
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400">Log in to like, bookmark, and open the reader.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
-	return (
-		<div className="container mx-auto px-4 py-8">
-			<Button
-				variant="ghost"
-				onClick={() => navigate(-1)}
-				className="mb-6"
-			>
-				<ArrowLeft className="h-4 w-4 mr-2" />
-				Back
-			</Button>
-
-			<div className="grid lg:grid-cols-3 gap-8">
-				{/* Book Cover */}
-				<div className="lg:col-span-1">
-					<Card>
-						<div className="aspect-[3/4] bg-muted rounded-t-lg flex items-center justify-center">
-							{book.cover_image ? (
-								<img
-									src={`/api/catalog/books/${book.id}/cover/`}
-									alt={book.title}
-									className="w-full h-full object-cover rounded-t-lg"
-								/>
-							) : (
-								<div className="text-muted-foreground text-center">
-									<div className="text-6xl mb-4">📚</div>
-									<div className="text-lg">
-										No Cover Available
-									</div>
-								</div>
-							)}
-						</div>
-						<CardContent className="p-6">
-							<div className="flex gap-2 mb-4">
-								<Button
-									variant={
-										book.is_liked ? "default" : "outline"
-									}
-									size="sm"
-									onClick={handleLike}
-									disabled={toggleLikeMutation.isPending}
-									className="flex-1"
-								>
-									<Heart
-										className={`h-4 w-4 mr-2 ${
-											book.is_liked ? "fill-current" : ""
-										}`}
-									/>
-									{book.like_count}
-								</Button>
-								<Button
-									variant={
-										book.is_bookmarked
-											? "default"
-											: "outline"
-									}
-									size="sm"
-									onClick={handleBookmark}
-									disabled={toggleBookmarkMutation.isPending}
-									className="flex-1"
-								>
-									<Bookmark
-										className={`h-4 w-4 mr-2 ${
-											book.is_bookmarked
-												? "fill-current"
-												: ""
-										}`}
-									/>
-									{book.bookmark_count}
-								</Button>
-							</div>
-							<Button
-								onClick={handleRead}
-								disabled={readTokenMutation.isPending}
-								className="w-full"
-								size="lg"
-							>
-								<Play className="h-4 w-4 mr-2" />
-								{readTokenMutation.isPending
-									? "Loading..."
-									: "Read Now"}
-							</Button>
-						</CardContent>
-					</Card>
-				</div>
-
-				{/* Book Details */}
-				<div className="lg:col-span-2">
-					<div className="space-y-6">
-						<div>
-							<h1 className="text-3xl font-bold mb-2">
-								{book.title}
-							</h1>
-							<p className="text-xl text-muted-foreground mb-4">
-								by {book.author}
-							</p>
-
-							<div className="flex flex-wrap gap-2 mb-4">
-								{book.categories.map((category) => (
-									<span
-										key={category.id}
-										className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm"
-									>
-										{category.name}
-									</span>
-								))}
-							</div>
-
-							<div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-6">
-								<span>Published: {book.year}</span>
-								<span>Pages: {book.pages}</span>
-								<span>Language: {book.language}</span>
-								<span>Format: {book.file_type}</span>
-								{book.isbn && <span>ISBN: {book.isbn}</span>}
-							</div>
-						</div>
-
-						<Card>
-							<CardHeader>
-								<CardTitle>Description</CardTitle>
-							</CardHeader>
-							<CardContent>
-								<p className="text-muted-foreground leading-relaxed">
-									{book.description ||
-										"No description available."}
-								</p>
-							</CardContent>
-						</Card>
-
-						{book.tags.length > 0 && (
-							<Card>
-								<CardHeader>
-									<CardTitle>Tags</CardTitle>
-								</CardHeader>
-								<CardContent>
-									<div className="flex flex-wrap gap-2">
-										{book.tags.map((tag, index) => (
-											<span
-												key={index}
-												className="bg-muted text-muted-foreground px-2 py-1 rounded text-sm"
-											>
-												#{tag}
-											</span>
-										))}
-									</div>
-								</CardContent>
-							</Card>
-						)}
-
-						<Card>
-							<CardHeader>
-								<CardTitle>Statistics</CardTitle>
-							</CardHeader>
-							<CardContent>
-								<div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-									<div>
-										<div className="text-2xl font-bold text-primary">
-											{book.view_count}
-										</div>
-										<div className="text-sm text-muted-foreground">
-											Views
-										</div>
-									</div>
-									<div>
-										<div className="text-2xl font-bold text-primary">
-											{book.like_count}
-										</div>
-										<div className="text-sm text-muted-foreground">
-											Likes
-										</div>
-									</div>
-									<div>
-										<div className="text-2xl font-bold text-primary">
-											{book.bookmark_count}
-										</div>
-										<div className="text-sm text-muted-foreground">
-											Bookmarks
-										</div>
-									</div>
-									<div>
-										<div className="text-2xl font-bold text-primary">
-											{book.reading_progress
-												? `${Math.round(
-														book.reading_progress
-															.percent
-												  )}%`
-												: "0%"}
-										</div>
-										<div className="text-sm text-muted-foreground">
-											Progress
-										</div>
-									</div>
-								</div>
-							</CardContent>
-						</Card>
-					</div>
-				</div>
-			</div>
-		</div>
-	);
-}
+export default BookDetailPage;

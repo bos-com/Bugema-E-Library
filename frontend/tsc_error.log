@@ -1,0 +1,12 @@
+src/app/pages/admin/AdminBooksPage.tsx(52,48): error TS2339: Property 'isLoading' does not exist on type 'UseMutationResult<void, Error, number, unknown>'.
+  Property 'isLoading' does not exist on type 'Override<MutationObserverIdleResult<void, Error, number, unknown>, { mutate: UseMutateFunction<void, Error, number, unknown>; }> & { ...; }'.
+src/app/pages/admin/AdminBooksPage.tsx(67,106): error TS2339: Property 'isLoading' does not exist on type 'UseMutationResult<BookDetail, Error, FormData, unknown>'.
+  Property 'isLoading' does not exist on type 'Override<MutationObserverIdleResult<BookDetail, Error, FormData, unknown>, { mutate: UseMutateFunction<BookDetail, Error, FormData, unknown>; }> & { ...; }'.
+src/app/pages/admin/AdminCategoriesPage.tsx(28,20): error TS2339: Property 'map' does not exist on type 'Category[] | PaginatedResponse<Category>'.
+  Property 'map' does not exist on type 'PaginatedResponse<Category>'.
+src/app/pages/admin/AdminCategoriesPage.tsx(28,25): error TS7006: Parameter 'category' implicitly has an 'any' type.
+src/app/pages/admin/AdminCategoriesPage.tsx(42,92): error TS2339: Property 'isLoading' does not exist on type 'UseMutationResult<Category, Error, { name: string; description?: string | undefined; }, unknown>'.
+  Property 'isLoading' does not exist on type 'Override<MutationObserverIdleResult<Category, Error, { name: string; description?: string | undefined; }, unknown>, { mutate: UseMutateFunction<Category, Error, { ...; }, unknown>; }> & { ...; }'.
+src/components/forms/BookForm.tsx(58,49): error TS7006: Parameter 'tag' implicitly has an 'any' type.
+src/components/forms/BookForm.tsx(63,17): error TS7006: Parameter 'cat' implicitly has an 'any' type.
+src/components/forms/BookForm.tsx(65,21): error TS7006: Parameter 'cat' implicitly has an 'any' type.

@@ -1,44 +1,37 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { apiClient } from './client'
-import { useAuthStore } from '@/lib/store/auth'
-import { User, LoginRequest, RegisterRequest, AuthResponse } from '@/types'
+import api from './client';
+import type { User } from '../types';
 
-export const useLogin = () => {
-  return useMutation({
-    mutationFn: async (credentials: LoginRequest) => {
-      const response = await apiClient.post<AuthResponse>('/auth/login/', credentials)
-      return response.data
-    },
-  })
+interface AuthTokens {
+  access: string;
+  refresh: string;
 }
 
-export const useRegister = () => {
-  return useMutation({
-    mutationFn: async (userData: RegisterRequest) => {
-      const response = await apiClient.post<AuthResponse>('/auth/register/', userData)
-      return response.data
-    },
-  })
+interface AuthResponse {
+  user: User;
+  tokens: AuthTokens;
 }
 
-export const useMe = () => {
-  return useQuery({
-    queryKey: ['auth', 'me'],
-    queryFn: async () => {
-      const response = await apiClient.get<User>('/auth/me/')
-      return response.data
-    },
-    retry: false,
-  })
-}
+export const login = async (payload: { email: string; password: string }) => {
+  const { data } = await api.post<AuthResponse>('/auth/login/', payload);
+  return data;
+};
 
-export const useLogout = () => {
-  return useMutation({
-    mutationFn: async () => {
-      const { tokens } = useAuthStore.getState()
-      if (tokens?.refresh) {
-        await apiClient.post('/auth/logout/', { refresh_token: tokens.refresh })
-      }
-    },
-  })
-}
+export const register = async (payload: {
+  email: string;
+  name: string;
+  password: string;
+  password_confirm: string;
+}) => {
+  const { data } = await api.post<AuthResponse>('/auth/register/', payload);
+  return data;
+};
+
+export const fetchProfile = async () => {
+  const { data } = await api.get<User>('/auth/me/');
+  return data;
+};
+
+export const logout = async (refresh: string | null) => {
+  if (!refresh) return;
+  await api.post('/auth/logout/', { refresh_token: refresh });
+};
