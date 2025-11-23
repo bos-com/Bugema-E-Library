@@ -14,4 +14,6 @@ dj-database-url
 setuptools
 cloudinary
 django-cloudinary-storage
-gunicorn
+gunicorn==21.2.0
+redis==5.0.1
+
