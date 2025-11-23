@@ -1,8 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
+import {
+  Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, PieChart, Pie, Cell, Legend
+} from 'recharts';
 import { getAdminOverview } from '../../../lib/api/analytics';
 import LoadingOverlay from '../../../components/feedback/LoadingOverlay';
 import StatCard from '../../../components/cards/StatCard';
+
+const COLORS = ['#EF4444', '#3B82F6', '#EAB308', '#F97316', '#22C55E'];
 
 const AdminOverviewPage = () => {
   const { data, isLoading } = useQuery({ queryKey: ['admin-overview'], queryFn: getAdminOverview });
@@ -24,20 +29,62 @@ const AdminOverviewPage = () => {
         <StatCard label="Reads (30d)" value={data.overview.total_reads} />
       </div>
 
-      <div className="card p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Reads per day</h2>
-          <p className="text-xs text-slate-500">Last 30 days</p>
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="card p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Reads per day</h2>
+            <p className="text-xs text-slate-500">Last 30 days</p>
+          </div>
+          <div className="mt-4 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data.reads_per_day}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="date" hide />
+                <YAxis stroke="#475569" allowDecimals={false} />
+                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b' }} />
+                <Line type="monotone" dataKey="count" stroke="#60a5fa" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
+
+        <div className="card p-5">
+          <h2 className="text-lg font-semibold text-white">Most Liked Categories</h2>
+          <div className="mt-4 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data.most_liked_categories}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="likes"
+                >
+                  {data.most_liked_categories.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b' }} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      <div className="card p-5">
+        <h2 className="text-lg font-semibold text-white">Peak Usage Times (Reads per Hour)</h2>
         <div className="mt-4 h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data.reads_per_day}>
+            <BarChart data={data.reads_per_hour}>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="date" hide />
+              <XAxis dataKey="hour" stroke="#475569" />
               <YAxis stroke="#475569" allowDecimals={false} />
               <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b' }} />
-              <Line type="monotone" dataKey="count" stroke="#60a5fa" strokeWidth={2} dot={false} />
-            </LineChart>
+              <Bar dataKey="count" fill="#F97316" radius={[4, 4, 0, 0]} />
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>

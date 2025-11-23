@@ -25,7 +25,7 @@ const AdminCategoriesPage = () => {
           <LoadingOverlay label="Loading categories" />
         ) : (
           <div className="mt-6 space-y-3">
-            {data?.map((category) => (
+            {(Array.isArray(data) ? data : data?.results)?.map((category) => (
               <div key={category.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
                 <p className="text-sm font-semibold text-white">{category.name}</p>
                 <p className="text-xs text-slate-400">{category.description ?? 'No description provided'}</p>

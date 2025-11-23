@@ -1,14 +1,17 @@
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { Search } from 'lucide-react';
 import { createBook, deleteBook, getBooks } from '../../../lib/api/catalog';
 import LoadingOverlay from '../../../components/feedback/LoadingOverlay';
 import BookForm from '../../../components/forms/BookForm';
 
 const AdminBooksPage = () => {
   const queryClient = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState('');
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-books'],
-    queryFn: () => getBooks({ page: 1, ordering: '-created_at' }),
+    queryKey: ['admin-books', searchQuery],
+    queryFn: () => getBooks({ page: 1, ordering: '-created_at', query: searchQuery }),
   });
 
   const createMutation = useMutation({
@@ -33,7 +36,21 @@ const AdminBooksPage = () => {
     <div className="space-y-10">
       <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Manage books</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Manage books</h1>
+          </div>
+
+          <div className="mt-6 relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search books by title, author, or description..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+            />
+          </div>
+
           {isLoading ? (
             <LoadingOverlay label="Loading books" />
           ) : (

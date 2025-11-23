@@ -10,6 +10,10 @@ export interface User {
   profile_picture?: string | null;
 }
 
+export interface AdminUser extends User {
+  is_online?: boolean;
+}
+
 export interface Category {
   id: number;
   name: string;
@@ -117,6 +121,8 @@ export interface AdminOverview {
     like_count: number;
   }>;
   most_liked_categories: Array<{ name: string; likes: number }>;
+  most_liked_categories: Array<{ name: string; likes: number }>;
   reads_per_day: Array<{ date: string; count: number }>;
+  reads_per_hour: Array<{ hour: number; count: number }>;
   top_search_terms: Array<{ term: string; count: number }>;
 }

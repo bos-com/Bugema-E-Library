@@ -11,6 +11,7 @@ import ProfilePage from '../app/pages/ProfilePage';
 import LoginPage from '../app/pages/LoginPage';
 import RegisterPage from '../app/pages/RegisterPage';
 import AdminOverviewPage from '../app/pages/admin/AdminOverviewPage';
+import AdminUsersPage from '../app/pages/admin/AdminUsersPage';
 import AdminBooksPage from '../app/pages/admin/AdminBooksPage';
 import AdminCategoriesPage from '../app/pages/admin/AdminCategoriesPage';
 import UnauthorizedPage from '../app/pages/UnauthorizedPage';
@@ -63,6 +64,7 @@ const AppRoutes = () => (
     >
       <Route index element={<Navigate to="overview" replace />} />
       <Route path="overview" element={<AdminOverviewPage />} />
+      <Route path="users" element={<AdminUsersPage />} />
       <Route path="books" element={<AdminBooksPage />} />
       <Route path="categories" element={<AdminCategoriesPage />} />
     </Route>
