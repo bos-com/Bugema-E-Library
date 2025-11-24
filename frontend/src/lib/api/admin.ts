@@ -1,5 +1,4 @@
 import api from './client';
-import api from './client';
 import type { AdminOverview, AdminUser, UserRole } from '../types';
 
 export const getAdminOverview = async () => {

@@ -6,7 +6,7 @@ import CategoryForm from '../../../components/forms/CategoryForm';
 
 const AdminCategoriesPage = () => {
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
+  const { data, isPending } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
 
   const mutation = useMutation({
     mutationFn: createCategory,
@@ -21,7 +21,7 @@ const AdminCategoriesPage = () => {
     <div className="grid gap-10 lg:grid-cols-[2fr_1fr]">
       <div>
         <h1 className="text-2xl font-semibold text-white">Categories</h1>
-        {isLoading ? (
+        {isPending ? (
           <LoadingOverlay label="Loading categories" />
         ) : (
           <div className="mt-6 space-y-3">
@@ -39,7 +39,7 @@ const AdminCategoriesPage = () => {
         <h2 className="text-lg font-semibold text-white">Add category</h2>
         <p className="text-xs text-slate-500">Publishing is instant across the new frontend.</p>
         <div className="mt-4">
-          <CategoryForm onSubmit={(values) => mutation.mutate(values)} isLoading={mutation.isLoading} />
+          <CategoryForm onSubmit={(values) => mutation.mutate(values)} isLoading={mutation.isPending} />
         </div>
       </div>
     </div>

@@ -10,9 +10,9 @@ import StatCard from '../../../components/cards/StatCard';
 const COLORS = ['#EF4444', '#3B82F6', '#EAB308', '#F97316', '#22C55E'];
 
 const AdminOverviewPage = () => {
-  const { data, isLoading } = useQuery({ queryKey: ['admin-overview'], queryFn: getAdminOverview });
+  const { data, isPending } = useQuery({ queryKey: ['admin-overview'], queryFn: getAdminOverview });
 
-  if (isLoading || !data) {
+  if (isPending || !data) {
     return <LoadingOverlay label="Fetching analytics" />;
   }
 

@@ -55,14 +55,14 @@ const BookForm = ({ defaultValues, onSubmit, isLoading }: BookFormProps) => {
     Object.entries(values).forEach(([key, value]) => {
       if (value === undefined || value === null || value === '') return;
       if (key === 'tags') {
-        const tagsArray = value.split(',').map((tag) => tag.trim()).filter(Boolean);
+        const tagsArray = value.split(',').map((tag: string) => tag.trim()).filter(Boolean);
         formData.append('tags', JSON.stringify(tagsArray));
       } else if (key === 'category_names') {
         value
           .split(',')
-          .map((cat) => cat.trim())
+          .map((cat: string) => cat.trim())
           .filter(Boolean)
-          .forEach((cat) => formData.append('category_names', cat));
+          .forEach((cat: string) => formData.append('category_names', cat));
       } else if (key === 'cover_image' || key === 'file') {
         const fileList = value as FileList;
         if (fileList?.length) {

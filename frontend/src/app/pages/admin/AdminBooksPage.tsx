@@ -9,7 +9,7 @@ import BookForm from '../../../components/forms/BookForm';
 const AdminBooksPage = () => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const { data, isLoading } = useQuery({
+  const { data, isPending } = useQuery({
     queryKey: ['admin-books', searchQuery],
     queryFn: () => getBooks({ page: 1, ordering: '-created_at', query: searchQuery }),
   });
@@ -51,7 +51,7 @@ const AdminBooksPage = () => {
             />
           </div>
 
-          {isLoading ? (
+          {isPending ? (
             <LoadingOverlay label="Loading books" />
           ) : (
             <div className="mt-6 space-y-4">
@@ -66,7 +66,7 @@ const AdminBooksPage = () => {
                     <button
                       onClick={() => deleteMutation.mutate(book.id)}
                       className="text-xs text-red-400"
-                      disabled={deleteMutation.isLoading}
+                      disabled={deleteMutation.isPending}
                     >
                       Remove
                     </button>
@@ -81,7 +81,7 @@ const AdminBooksPage = () => {
           <h2 className="text-lg font-semibold text-white">Create / update</h2>
           <p className="text-xs text-slate-500">Uploads are streamed via Cloudinary-backed API.</p>
           <div className="mt-4">
-            <BookForm onSubmit={(formData) => createMutation.mutate(formData)} isLoading={createMutation.isLoading} />
+            <BookForm onSubmit={(formData) => createMutation.mutate(formData)} isLoading={createMutation.isPending} />
           </div>
         </div>
       </div>
