@@ -3,8 +3,9 @@ services:
     type: web
     runtime: python
     plan: free
+    rootDirectory: backend
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn elibrary.wsgi --bind 0.0.0.0:$PORT
     envVars:
       - key: DATABASE_URL
-        value: postgresql://neondb_owner:npg_H5wszTpZiW3a@ep-morning-union-ahzk3wvm-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require' 
+        value: postgresql://neondb_owner:npg_H5wszTpZiW3a@ep-morning-union-ahzk3wvm-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
