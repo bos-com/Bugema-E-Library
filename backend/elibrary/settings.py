@@ -94,7 +94,7 @@ TEMPLATES = [
     },
 ]
 
-
+DATABASE_URL='postgresql://neondb_owner:npg_H5wszTpZiW3a@ep-morning-union-ahzk3wvm-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
