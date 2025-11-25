@@ -24,10 +24,14 @@ DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 # ALLOWED_HOSTS configuration for production
 RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME')
+VERCEL_URL = os.getenv('VERCEL_URL')
+
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS = [RENDER_EXTERNAL_HOSTNAME, 'localhost', '127.0.0.1']
+elif VERCEL_URL:
+    ALLOWED_HOSTS = [VERCEL_URL, 'e-library.bugema.vercel.app', '.vercel.app', 'localhost', '127.0.0.1']
 else:
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'e-library.bugema.vercel.app']
 
 # Application definition
 DJANGO_APPS = [
@@ -196,9 +200,18 @@ SIMPLE_JWT = {
 }
 
 # CORS Configuration
-# NOTE: Adjusted example default CORS origin from port 5432 (Postgres) to a common frontend port like 8000/8080 or 3000/5173.
-CORS_ALLOWED_ORIGINS_STR = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5174,http://localhost:3000')
+# Automatically include production and development URLs
+CORS_ALLOWED_ORIGINS_STR = os.getenv(
+    'CORS_ALLOWED_ORIGINS', 
+    'https://e-library-bugema.vercel.app,http://localhost:5174,http://localhost:3000'
+)
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS_STR.split(',') if origin.strip()]
+
+# Also allow any Vercel preview deployments
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https://e-library-bugema.*\.vercel\.app$',
+]
+
 CORS_ALLOW_CREDENTIALS = True
 
 # Spectacular (OpenAPI) Configuration

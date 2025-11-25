@@ -11,4 +11,4 @@ services:
       - key: DATABASE_URL
         value: postgresql://neondb_owner:npg_H5wszTpZiW3a@ep-morning-union-ahzk3wvm-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
       - key: CORS_ALLOWED_ORIGINS
-        value: https://e-library-bugema-q2sm3do0f-joshua256s-projects.vercel.app,http://localhost:5174,http://localhost:3000
+        value: https://e-library-bugema.vercel.app,http://localhost:5174,http://localhost:3000
