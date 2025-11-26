@@ -6,16 +6,17 @@ export const getAdminOverview = async () => {
     return data;
 };
 
+// Admin User Management - FIXED endpoint
 export const getUsers = async () => {
-    const { data } = await api.get<AdminUser[]>('/accounts/users/');
+    const { data } = await api.get<AdminUser[]>('/admin/users/');
     return data;
 };
 
 export const updateUserRole = async (userId: string, role: UserRole) => {
-    const { data } = await api.patch<AdminUser>(`/accounts/users/${userId}/role/`, { role });
+    const { data } = await api.patch<AdminUser>(`/admin/users/${userId}/role/`, { role });
     return data;
 };
 
 export const deleteUser = async (userId: string) => {
-    await api.delete(`/accounts/users/${userId}/`);
+    await api.delete(`/admin/users/${userId}/`);
 };

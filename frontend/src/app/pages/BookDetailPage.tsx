@@ -61,6 +61,22 @@ const BookDetailPage = () => {
             <p className="mt-3">Views • {book.view_count}</p>
             <p>Likes • {book.like_count}</p>
             <p>Bookmarks • {book.bookmark_count}</p>
+
+            {/* Star Rating */}
+            <div className="mt-3 flex items-center gap-2">
+              <div className="flex gap-0.5">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <svg
+                    key={star}
+                    className={`h-4 w-4 ${star <= 4 ? 'fill-yellow-400 text-yellow-400' : 'fill-slate-600 text-slate-600'}`}
+                    viewBox="0 0 20 20"
+                  >
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                ))}
+              </div>
+              <span className="text-xs text-slate-400">4.0</span>
+            </div>
           </div>
           {user ? (
             <div className="space-y-2">
@@ -69,14 +85,18 @@ const BookDetailPage = () => {
               </button>
               <div className="flex gap-2">
                 <button
-                  className={`w-1/2 rounded-lg border px-3 py-2 text-sm font-semibold ${book.is_liked ? 'border-brand-400 text-brand-200' : 'border-white/10 text-white'
+                  className={`w-1/2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${book.is_liked
+                      ? 'border-red-500 bg-red-500/10 text-red-400'
+                      : 'border-white/10 text-white hover:border-red-500/50 hover:bg-red-500/5'
                     }`}
                   onClick={() => likeMutation.mutate()}
                 >
                   ♥ Like
                 </button>
                 <button
-                  className={`w-1/2 rounded-lg border px-3 py-2 text-sm font-semibold ${book.is_bookmarked ? 'border-brand-400 text-brand-200' : 'border-white/10 text-white'
+                  className={`w-1/2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${book.is_bookmarked
+                      ? 'border-brand-400 bg-brand-400/10 text-brand-300'
+                      : 'border-white/10 text-white hover:border-brand-400/50 hover:bg-brand-400/5'
                     }`}
                   onClick={() => bookmarkMutation.mutate()}
                 >
