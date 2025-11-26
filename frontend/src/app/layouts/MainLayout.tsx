@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../../lib/store/auth';
 import ThemeToggle from '../../components/ThemeToggle';
 import ProfileDropdown from '../../components/ProfileDropdown';
+import HamburgerMenu from '../../components/HamburgerMenu';
 
 const navItems = [
   { label: 'Home', to: '/' },
@@ -45,7 +46,10 @@ const MainLayout = () => {
           <div className="flex items-center gap-3 text-sm">
             <ThemeToggle />
             {user ? (
-              <ProfileDropdown />
+              <>
+                <HamburgerMenu />
+                <ProfileDropdown />
+              </>
             ) : (
               <div className="space-x-3">
                 <Link to="/login" className="text-sm font-medium text-slate-900 dark:text-white">

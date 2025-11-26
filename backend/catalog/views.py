@@ -230,7 +230,13 @@ def toggle_like(request, book_id):
             return Response({'liked': True, 'like_count': book.like_count})
     
     except Book.DoesNotExist:
-        raise Http404("Book not found")
+        return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error(f"Error toggling like for book {book_id}: {str(e)}", exc_info=True)
+        return Response(
+            {'error': 'Failed to toggle like', 'detail': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(['POST'])
@@ -262,7 +268,13 @@ def toggle_bookmark(request, book_id):
             return Response({'bookmarked': True, 'bookmark_count': book.bookmark_count})
     
     except Book.DoesNotExist:
-        raise Http404("Book not found")
+        return Response({'error': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logger.error(f"Error toggling bookmark for book {book_id}: {str(e)}", exc_info=True)
+        return Response(
+            {'error': 'Failed to toggle bookmark', 'detail': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 # --- SEARCH SUGGESTIONS VIEW ---

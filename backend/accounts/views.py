@@ -17,20 +17,33 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = [AllowAny]
     
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        
-        # Generate JWT tokens
-        refresh = RefreshToken.for_user(user)
-        
-        return Response({
-            'user': UserSerializer(user).data,
-            'tokens': {
-                'access': str(refresh.access_token),
-                'refresh': str(refresh)
-            }
-        }, status=status.HTTP_201_CREATED)
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            user = serializer.save()
+            
+            # Generate JWT tokens
+            refresh = RefreshToken.for_user(user)
+            
+            return Response({
+                'user': UserSerializer(user).data,
+                'tokens': {
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh)
+                }
+            }, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            # Log the error for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Registration error: {str(e)}", exc_info=True)
+            
+            # Return user-friendly error message
+            error_message = str(e) if hasattr(e, 'detail') else 'Registration failed. Please try again.'
+            return Response(
+                {'error': error_message, 'detail': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class LoginView(TokenObtainPairView):
@@ -80,14 +93,24 @@ def logout(request):
 @permission_classes([IsAuthenticated])
 def update_profile(request):
     """Update user profile"""
-    user = request.user
-    serializer = UserSerializer(user, data=request.data, partial=True)
-    
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
-    
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        user = request.user
+        serializer = UserSerializer(user, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Profile update error for user {request.user.id}: {str(e)}", exc_info=True)
+        
+        return Response(
+            {'error': 'Failed to update profile', 'detail': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 # --- ADMIN VIEWS ---
@@ -99,22 +122,35 @@ class AdminUserListView(generics.ListAPIView):
     queryset = User.objects.all().order_by('-created_at')
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        
-        # Add online status
-        data = serializer.data
-        now = timezone.now()
-        threshold = now - timedelta(minutes=5)
-        
-        for user_data in data:
-            user = User.objects.get(id=user_data['id'])
-            # Check if user was active recently (using last_login as proxy for now)
-            # Ideally we'd have a middleware updating 'last_activity'
-            is_online = user.last_login and user.last_login > threshold
-            user_data['is_online'] = bool(is_online)
+        try:
+            queryset = self.get_queryset()
+            serializer = self.get_serializer(queryset, many=True)
             
-        return Response(data)
+            # Add online status
+            data = serializer.data
+            now = timezone.now()
+            threshold = now - timedelta(minutes=5)
+            
+            for user_data in data:
+                try:
+                    user = User.objects.get(id=user_data['id'])
+                    # Check if user was active recently (using last_login as proxy for now)
+                    # Ideally we'd have a middleware updating 'last_activity'
+                    is_online = user.last_login and user.last_login > threshold
+                    user_data['is_online'] = bool(is_online)
+                except User.DoesNotExist:
+                    user_data['is_online'] = False
+                
+            return Response(data)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Admin user list error: {str(e)}", exc_info=True)
+            
+            return Response(
+                {'error': 'Failed to fetch users', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 @api_view(['PATCH'])
@@ -135,6 +171,15 @@ def admin_update_user_role(request, user_id):
         return Response(UserSerializer(user).data)
     except User.DoesNotExist:
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Admin update user role error for user {user_id}: {str(e)}", exc_info=True)
+        
+        return Response(
+            {'error': 'Failed to update user role', 'detail': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(['DELETE'])
@@ -151,3 +196,12 @@ def admin_delete_user(request, user_id):
         return Response({'message': 'User deleted successfully'})
     except User.DoesNotExist:
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Admin delete user error for user {user_id}: {str(e)}", exc_info=True)
+        
+        return Response(
+            {'error': 'Failed to delete user', 'detail': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

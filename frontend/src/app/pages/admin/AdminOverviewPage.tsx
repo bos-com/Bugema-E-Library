@@ -61,13 +61,23 @@ const AdminOverviewPage = () => {
                   outerRadius={80}
                   paddingAngle={5}
                   dataKey="likes"
+                  nameKey="name"
+                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  labelLine={true}
                 >
                   {data.most_liked_categories.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b' }} />
-                <Legend />
+                <Tooltip
+                  contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', color: '#fff' }}
+                  itemStyle={{ color: '#fff' }}
+                />
+                <Legend
+                  wrapperStyle={{ color: '#fff' }}
+                  iconType="circle"
+                  formatter={(value) => <span style={{ color: '#fff', fontSize: '14px' }}>{value}</span>}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>
