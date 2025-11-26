@@ -33,7 +33,7 @@ class BookListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = [
-            'id', 'title', 'author', 'description', 'language', 'year', 
+            'id', 'title', 'author', 'description', 'isbn', 'language', 'year', 
             'pages', 'cover_image', 'file', 'file_type', 'is_published',
             'view_count', 'like_count', 'bookmark_count', 'tags',
             'categories', 'is_liked', 'is_bookmarked', 'reading_progress', 'created_at'
@@ -70,14 +70,19 @@ class BookListSerializer(serializers.ModelSerializer):
         return None
 
     def _build_absolute_uri(self, obj, field_name):
+        """Build absolute URI for file fields stored on Cloudinary"""
         field = getattr(obj, field_name, None)
         if not field:
             return None
-        url = field.url if hasattr(field, 'url') else field
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(url)
-        return url
+        
+        # For Cloudinary storage, field.url already returns the full Cloudinary URL
+        # Don't use request.build_absolute_uri as it will prepend the Django domain
+        try:
+            if hasattr(field, 'url'):
+                return field.url  # Cloudinary URL is already absolute
+            return str(field) if field else None
+        except Exception:
+            return None
 
     def get_cover_image(self, obj):
         return self._build_absolute_uri(obj, 'cover_image')

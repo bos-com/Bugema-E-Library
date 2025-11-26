@@ -6,6 +6,9 @@ from django.contrib.auth import get_user_model
 # Get the custom User model defined in the 'accounts' app
 User = get_user_model()
 
+# Import custom storage
+from .storage import RawMediaCloudinaryStorage
+
 # --- Utility Fields ---
 
 class Author(models.Model):
@@ -60,9 +63,15 @@ class Book(models.Model):
     categories = models.ManyToManyField(Category, related_name='books') 
     tags = models.JSONField(default=list, help_text="List of string tags, e.g., ['classic', 'fiction']")
 
-    # File and Image IDs (Assuming simple storage paths for Postgres)
+    # File and Image IDs (Using custom storage for files to preserve extensions)
     cover_image = models.ImageField(upload_to='covers/', null=True, blank=True)
-    file = models.FileField(upload_to='books/', null=True, blank=True)
+    file = models.FileField(upload_to='books/', storage=RawMediaCloudinaryStorage(), null=True, blank=True)
+    
+    # Cloudinary metadata - explicitly store public_id and URL for easier retrieval
+    cloudinary_public_id = models.CharField(max_length=500, null=True, blank=True, 
+                                           help_text="Cloudinary public_id for the file")
+    file_url = models.URLField(max_length=500, null=True, blank=True,
+                              help_text="Direct Cloudinary URL for the file")
     
     # Denormalized counters (to match the logic in the seed script)
     view_count = models.PositiveIntegerField(default=0)
@@ -72,6 +81,20 @@ class Book(models.Model):
     is_published = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        """Override save to populate Cloudinary metadata"""
+        # If a file is attached, extract and store Cloudinary metadata
+        if self.file:
+            # The file.name contains the path stored in Cloudinary
+            # For our custom storage, this will be like 'media/books/filename.pdf'
+            self.cloudinary_public_id = self.file.name
+            
+            # Get the full Cloudinary URL
+            if hasattr(self.file, 'url'):
+                self.file_url = self.file.url
+        
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.title

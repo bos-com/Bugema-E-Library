@@ -1,6 +1,6 @@
 from rest_framework import status, generics
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.utils import timezone
 from datetime import timedelta
 from rest_framework.response import Response
@@ -8,6 +8,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .models import User
 from .serializers import UserSerializer, UserRegistrationSerializer, CustomTokenObtainPairSerializer
+from .permissions import IsAdminRole
 
 
 class RegisterView(generics.CreateAPIView):
@@ -118,7 +119,7 @@ def update_profile(request):
 class AdminUserListView(generics.ListAPIView):
     """List all users with online status for admins"""
     serializer_class = UserSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminRole]
     queryset = User.objects.all().order_by('-created_at')
 
     def list(self, request, *args, **kwargs):
@@ -154,7 +155,7 @@ class AdminUserListView(generics.ListAPIView):
 
 
 @api_view(['PATCH'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAdminRole])
 def admin_update_user_role(request, user_id):
     """Promote or demote a user"""
     try:
@@ -183,7 +184,7 @@ def admin_update_user_role(request, user_id):
 
 
 @api_view(['DELETE'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAdminRole])
 def admin_delete_user(request, user_id):
     """Delete a user"""
     try:

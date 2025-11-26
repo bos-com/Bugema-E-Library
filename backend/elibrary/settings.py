@@ -283,4 +283,13 @@ cloudinary.config(
 
 DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME', 'e-bugema'),
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY', '784176254118466'),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET', 'wCG7qPZViEo8q1tVJDpi89mM5Us'),
+    'RESOURCE_TYPE': 'raw',
+    'USE_FILENAME': True,
+    'UNIQUE_FILENAME': False, 
+}
+
 MEDIA_URL = "/media/"

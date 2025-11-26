@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404   
 from rest_framework import generics, status, filters, viewsets
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django.http import Http404, HttpResponse
@@ -22,6 +22,7 @@ from .serializers import (
     CategorySerializer, BookListSerializer, BookDetailSerializer,
     BookCreateUpdateSerializer, BookLikeSerializer, BookmarkSerializer
 )
+from accounts.permissions import IsAdminRole
 from rest_framework.parsers import MultiPartParser, FormParser
 
 # Initialize logger
@@ -78,17 +79,35 @@ class BookViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         # Apply permissions based on action
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()] 
+            return [IsAdminRole()] 
         return [AllowAny()]
 
-    def retrieve(self, request, *args, **kwargs):
-        # Re-implement the view count logic from the old BookDetailView
-        instance = self.get_object()
-        Book.objects.filter(pk=instance.pk).update(view_count=F('view_count') + 1)
-        instance.refresh_from_db()
+    def list(self, request, *args, **kwargs):
+        """Override list to add error handling"""
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error listing books: {str(e)}", exc_info=True)
+            return Response(
+                {'error': 'Failed to fetch books', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+    def retrieve(self, request, *args, **kwargs):
+        """Re-implement the view count logic from the old BookDetailView"""
+        try:
+            instance = self.get_object()
+            Book.objects.filter(pk=instance.pk).update(view_count=F('view_count') + 1)
+            instance.refresh_from_db()
+
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error retrieving book: {str(e)}", exc_info=True)
+            return Response(
+                {'error': 'Failed to fetch book', 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 # --- COVER IMAGE VIEW (Placeholder) ---
 @api_view(['GET'])
@@ -115,29 +134,40 @@ def book_read_stream(request, book_id):
     try:
         book = Book.objects.get(id=book_id, is_published=True)
         if not book.file:
+            logger.error(f"Book {book_id} has no file attached")
             return Response({'error': 'Book file not found'}, status=404)
 
-   
-        try:
-            rel_path = Path(book.file.name).relative_to('media')
-            public_id = rel_path.as_posix()  
-        except ValueError:
-            return Response({'error': 'Invalid file path'}, status=400)
+        # Use the stored cloudinary_public_id if available, otherwise fall back to file.name
+        if book.cloudinary_public_id:
+            public_id = book.cloudinary_public_id
+            logger.info(f"Using stored cloudinary_public_id: {public_id}")
+        else:
+            # Fallback: extract from file.name
+            public_id = book.file.name
+            logger.warning(f"No cloudinary_public_id stored, using file.name: {public_id}")
+        
+        # For Cloudinary raw resources, the public_id should NOT include the extension
+        # Strip the extension if present
+        if '.' in public_id:
+            public_id = public_id.rsplit('.', 1)[0]
+            logger.info(f"Stripped extension, final public_id: {public_id}")
 
-        resource_type = "raw" if book.file_type in ('PDF', 'EPUB') else "video"
+        # Determine resource type
+        resource_type = "raw" 
+        logger.info(f"Resource type: {resource_type}")
 
-        logger.info("Cloudinary public_id: %s", public_id)
-
+        # Generate signed Cloudinary URL
         signed_url = cloudinary.utils.cloudinary_url(
             public_id,
             resource_type=resource_type,
             type="upload",
             sign_url=True,
             expires_at=int(time.time()) + 3600,
-            attachment=True,
         )[0]
 
-        logger.info("Signed URL: %s", signed_url)
+        logger.info(f"Generated signed URL for book {book_id}: {signed_url}")
+        
+        # Fetch from Cloudinary
         cloud_resp = requests.get(signed_url, stream=True, timeout=30)
         cloud_resp.raise_for_status()
 
@@ -148,27 +178,23 @@ def book_read_stream(request, book_id):
         }
         content_type = mime_map.get(book.file_type, 'application/octet-stream')
 
-    
         filename = os.path.basename(book.file.name) or 'file'
-
         response = StreamingHttpResponse(
             cloud_resp.iter_content(chunk_size=8192),
             content_type=content_type,
         )
         response['Content-Disposition'] = f'inline; filename="{filename}"'
 
-    
         if 'Content-Length' in cloud_resp.headers:
             response['Content-Length'] = cloud_resp.headers['Content-Length']
 
         return response
 
-
-
     except Book.DoesNotExist:
-        raise HttpResponseNotFound("Book not found")
+        logger.error(f"Book {book_id} not found")
+        return Response({'error': 'Book not found'}, status=404)
     except requests.exceptions.HTTPError as exc:
-        logger.exception("Cloudinary request failed for book %s", book_id)
+        logger.exception(f"Cloudinary request failed for book {book_id}")
         if exc.response.status_code == 404:
              return Response(
                 {'error': 'File not found on storage server.'},
@@ -179,9 +205,9 @@ def book_read_stream(request, book_id):
             status=status.HTTP_502_BAD_GATEWAY,
         )
     except Exception as exc:
-        logger.exception("Unhandled streaming error for book %s", book_id)
+        logger.exception(f"Unhandled streaming error for book {book_id}")
         return Response(
-            {'error': 'An internal error occurred while streaming the file.'},
+            {'error': 'An internal error occurred while streaming the file.', 'detail': str(exc)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 

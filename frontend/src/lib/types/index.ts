@@ -27,6 +27,7 @@ export interface BookSummary {
   title: string;
   author: string;
   description: string;
+  isbn: string;
   language: string;
   year?: number;
   pages?: number;
@@ -50,7 +51,6 @@ export interface BookSummary {
 }
 
 export interface BookDetail extends BookSummary {
-  isbn: string;
   updated_at: string;
 }
 

@@ -14,6 +14,45 @@ from django.shortcuts import get_object_or_404
 # You'll need to import your Book model (or whatever model holds the file)
 # Example: from .models import Book 
 
+# Import Cloudinary storage
+from cloudinary_storage.storage import MediaCloudinaryStorage
+
+
+# --- Custom Cloudinary Storage ---
+class RawMediaCloudinaryStorage(MediaCloudinaryStorage):
+    """
+    Custom storage class that ensures file extensions are included in the public_id
+    when uploading to Cloudinary.
+    
+    This is necessary because Cloudinary's 'raw' resource type stores extensions
+    separately by default, but we want the full filename (with extension) to be
+    part of the public_id for easier management and retrieval.
+    """
+    
+    def _save(self, name, content):
+        """
+        Override the save method to ensure the extension is preserved in the public_id.
+        """
+        # Get the folder and filename
+        folder = os.path.dirname(name)
+        filename = os.path.basename(name)
+        
+        # Ensure we have the extension
+        name_without_ext, ext = os.path.splitext(filename)
+        
+        # If there's no extension, try to get it from content
+        if not ext and hasattr(content, 'name'):
+            _, ext = os.path.splitext(content.name)
+        
+        # Reconstruct the full path with extension
+        if folder:
+            full_name = f"{folder}/{name_without_ext}{ext}"
+        else:
+            full_name = f"{name_without_ext}{ext}"
+        
+        # Call the parent save method with the full name
+        return super()._save(full_name, content)
+
 
 # --- Storage Class (DEPRECATED/REMOVED) ---
 # When using PostgreSQL/ORM, you typically use Django's default FileSystemStorage 
