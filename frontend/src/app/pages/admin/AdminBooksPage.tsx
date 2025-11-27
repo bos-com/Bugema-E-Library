@@ -156,7 +156,7 @@ const AdminBooksPage = () => {
                 pages: selectedBook.pages,
                 file_type: selectedBook.file_type,
                 is_published: selectedBook.is_published,
-                tags: selectedBook.tags,
+                tags: selectedBook.tags || [],
                 category_names: selectedBook.categories?.map(c => c.name),
               } : undefined}
               onSubmit={handleSubmit}
