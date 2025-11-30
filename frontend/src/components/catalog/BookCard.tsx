@@ -166,4 +166,6 @@ const BookCard = memo(({ book, viewMode, onLike, onBookmark }: BookCardProps) =>
     );
 });
 
+BookCard.displayName = 'BookCard';
+
 export default BookCard;
