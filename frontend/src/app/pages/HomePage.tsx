@@ -10,7 +10,6 @@ const HomePage = () => {
   const categories = Array.isArray(categoriesData)
     ? categoriesData
     : (categoriesData as any)?.results ?? [];
-  console.log('HomePage rendering, categories:', categories, 'isArray:', Array.isArray(categories));
   const { data: books, isLoading } = useQuery({
     queryKey: ['books', 'featured'],
     queryFn: () => getBooks({ ordering: '-view_count', page: 1 }),

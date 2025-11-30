@@ -45,8 +45,8 @@ const BookForm = ({ defaultValues, onSubmit, isLoading }: BookFormProps) => {
       pages: defaultValues?.pages,
       file_type: defaultValues?.file_type ?? 'PDF',
       is_published: defaultValues?.is_published ?? true,
-      tags: defaultValues?.tags?.join(', '),
-      category_names: defaultValues?.category_names?.join(', '),
+      tags: Array.isArray(defaultValues?.tags) ? defaultValues.tags.join(', ') : (defaultValues?.tags as unknown as string) || '',
+      category_names: Array.isArray(defaultValues?.category_names) ? defaultValues.category_names.join(', ') : (defaultValues?.category_names as unknown as string) || '',
     },
   });
 
