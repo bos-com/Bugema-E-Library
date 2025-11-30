@@ -34,10 +34,8 @@ export const getBookFileUrl = async (bookId: string | number) => {
 };
 
 export const streamBookContent = async (bookId: string | number) => {
-  const response = await api.get(`/catalog/books/${bookId}/read/stream/`, {
-    responseType: 'blob',
-  });
-  return response.data;
+  const { data } = await api.get<{ url: string }>(`/catalog/books/${bookId}/read/stream/`);
+  return data.url;
 };
 
 export const toggleLike = async (bookId: number) => {
