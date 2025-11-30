@@ -14,10 +14,7 @@ const ReaderPage = () => {
 
   const { data: fileUrl, isLoading, isError, error } = useQuery({
     queryKey: ['book-stream', bookId],
-    queryFn: async () => {
-      const blob = await streamBookContent(bookId!);
-      return URL.createObjectURL(blob);
-    },
+    queryFn: () => streamBookContent(bookId!),
     enabled: Boolean(bookId),
     staleTime: Infinity, // Keep the URL valid for the session
     retry: 2,
