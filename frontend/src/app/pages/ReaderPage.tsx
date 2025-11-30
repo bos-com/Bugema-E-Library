@@ -65,7 +65,8 @@ const ReaderPage = () => {
       </div>
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-black">
         {/* Use object URL for iframe source */}
-        <iframe title="reader" src={fileUrl} className="h-[80vh] w-full" />
+        {/* #view=FitH forces the PDF to fit the width of the container */}
+        <iframe title="reader" src={`${fileUrl}#view=FitH`} className="h-[88vh] w-full" />
       </div>
     </div>
   );
