@@ -167,7 +167,7 @@ def book_read_stream(request, book_id):
         signed_url, _ = cloudinary.utils.cloudinary_url(
             public_id,
             resource_type=resource_type,
-            type="upload",          # change if you use authenticated/private
+            type="upload",          
             sign_url=True,
             secure=True,
             expires_at=int(time.time()) + 3600,
