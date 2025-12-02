@@ -22,18 +22,19 @@ const HomePage = () => {
         <div className="space-y-6">
           <div className="inline-block">
             <span className="rounded-full bg-gradient-to-r from-brand-500 to-violet-500 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white shadow-lg">
-              Bugema Digital Library
+              Bugema University E-Library
             </span>
           </div>
           <h1 className="text-5xl font-bold leading-tight text-slate-900 dark:text-white md:text-6xl">
-            Seamless Reading with{' '}
+            Your Gateway to{' '}
             <span className="bg-gradient-to-r from-brand-600 to-violet-600 bg-clip-text text-transparent">
-              Powerful Features
+              Bugema University&apos;s Digital Library
             </span>
           </h1>
           <p className="text-lg leading-relaxed text-slate-700 dark:text-slate-300">
-            Experience automatic token rotation, comprehensive admin observability, and a beautifully crafted
-            interface powered by a high-performance Django backend.
+            Access course books, research materials, and recommended readings from Bugema University in one
+            convenient online library. Designed to support students, staff, and researchers on and off campus,
+            in the spirit of Bugema University &ndash; Excellence in Service.
           </p>
           <div className="flex flex-wrap gap-4">
             <Link to="/catalog" className="btn-primary">
@@ -56,7 +57,7 @@ const HomePage = () => {
               variant="blue"
               label="Categories"
               value={categories?.length ?? 0}
-              hint="Curated subjects"
+              hint="Curated academic subjects"
               icon={
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -67,7 +68,7 @@ const HomePage = () => {
               variant="emerald"
               label="Featured"
               value={books?.results.length ?? 0}
-              hint="Popular books"
+              hint="Most accessed titles"
               icon={
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
@@ -116,7 +117,9 @@ const HomePage = () => {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Browse by Category</h2>
-            <p className="mt-2 text-slate-600 dark:text-slate-400">Explore our curated collection</p>
+            <p className="mt-2 text-slate-600 dark:text-slate-400">
+              Explore Bugema University subjects and collections
+            </p>
           </div>
           <Link
             to="/catalog"
@@ -140,7 +143,7 @@ const HomePage = () => {
                     {category.name}
                   </p>
                   <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                    {category.description ?? 'Explore this collection of books.'}
+                    {category.description ?? 'Browse books and resources available in this Bugema University subject area.'}
                   </p>
                   <div className="mt-4 flex items-center gap-2">
                     <span className="badge badge-blue">{category.book_count ?? 0} books</span>
