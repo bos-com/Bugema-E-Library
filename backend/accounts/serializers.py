@@ -33,25 +33,20 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         fields = ['email', 'name', 'password', 'password_confirm']
 
     def validate(self, attrs):
-        # Ensure 'password_confirm' is present before comparison
         if attrs.get('password') != attrs.get('password_confirm'):
             raise serializers.ValidationError({"password_confirm": "Passwords don't match."})
         return attrs
 
     def validate_email(self, value):
-        # Django ORM style (uses .filter().exists() or .filter().first() is also fine)
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("User with this email already exists.")
         return value
 
     def create(self, validated_data):
-        # Remove the confirmation field before saving
         validated_data.pop('password_confirm')
-        # Create and save the new user instance
         user = User(
             email=validated_data['email'],
             name=validated_data['name'],
-            # Do not set password directly, use the set_password method
         )
         user.set_password(validated_data['password'])
         user.save()
@@ -63,9 +58,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """Custom JWT token serializer with user data"""
     def validate(self, attrs):
         data = super().validate(attrs)
-        # self.user is set by the parent's validate method
-        
-        # Nest tokens to match the RegisterView response structure and frontend expectation
+       
         return {
             'user': UserSerializer(self.user).data,
             'tokens': {

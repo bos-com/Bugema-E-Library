@@ -29,9 +29,9 @@ VERCEL_URL = os.getenv('VERCEL_URL')
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS = [RENDER_EXTERNAL_HOSTNAME, 'localhost', '127.0.0.1']
 elif VERCEL_URL:
-    ALLOWED_HOSTS = [VERCEL_URL, 'e-library.bugema.vercel.app', '.vercel.app', 'localhost', '127.0.0.1']
+    ALLOWED_HOSTS = [VERCEL_URL, 'bugema-e-library.vercel.app', '.vercel.app', 'localhost', '127.0.0.1']
 else:
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'e-library.bugema.vercel.app']
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'bugema-e-library.vercel.app']
 
 # Application definition
 DJANGO_APPS = [
@@ -41,7 +41,6 @@ DJANGO_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # ADDED: This app enables PostgreSQL-specific features (JSONField, ArrayField, etc.)
     'django.contrib.postgres', 
 ]
 
@@ -79,6 +78,10 @@ MIDDLEWARE = [
     'analytics.middleware.AnalyticsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
+MIDDLEWARE += [
+    "accounts.middleware.last_seen.UpdateLastSeenMiddleware",
+]
+
 
 ROOT_URLCONF = 'elibrary.urls'
 
@@ -203,13 +206,13 @@ SIMPLE_JWT = {
 # Automatically include production and development URLs
 CORS_ALLOWED_ORIGINS_STR = os.getenv(
     'CORS_ALLOWED_ORIGINS', 
-    'https://e-library-bugema.vercel.app,http://localhost:5174,http://localhost:3000'
+    'https://bugema-e-library.vercel.app/,http://localhost:5174,http://localhost:3000'
 )
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS_STR.split(',') if origin.strip()]
 
 # Also allow any Vercel preview deployments
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r'^https://e-library-bugema.*\.vercel\.app$',
+    r'^https://bugema-e-library.vercel.app/.*\.vercel\.app$',
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -221,7 +224,7 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
-    # Add security definitions so Swagger shows an Authorize button for JWT Bearer tokens
+   
     'SECURITY': [{'bearerAuth': []}],
     'SECURITY_SCHEMES': {
         'bearerAuth': {
@@ -271,9 +274,6 @@ RATELIMIT_ENABLE = True
 
 
 # Cloudinary credentials (load from environment or secret manager)
-
-
-
 cloudinary.config(
     cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME', 'e-bugema'),
     api_key=os.getenv('CLOUDINARY_API_KEY', '784176254118466'),

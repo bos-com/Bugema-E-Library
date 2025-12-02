@@ -3,16 +3,14 @@ import mimetypes
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.http import HttpResponse, Http404, FileResponse
-from django.core.files.storage import default_storage # Import Django's default storage
+from django.core.files.storage import default_storage 
 from django.core.files.base import ContentFile
-# Removed pymongo and gridfs imports
 import hashlib
 import hmac
 import base64
 from urllib.parse import quote
 from django.shortcuts import get_object_or_404
-# You'll need to import your Book model (or whatever model holds the file)
-# Example: from .models import Book 
+
 
 # Import Cloudinary storage
 from cloudinary_storage.storage import MediaCloudinaryStorage
@@ -36,8 +34,7 @@ class RawMediaCloudinaryStorage(MediaCloudinaryStorage):
         # Get the folder and filename
         folder = os.path.dirname(name)
         filename = os.path.basename(name)
-        
-        # Ensure we have the extension
+    
         name_without_ext, ext = os.path.splitext(filename)
         
         # If there's no extension, try to get it from content
@@ -54,14 +51,7 @@ class RawMediaCloudinaryStorage(MediaCloudinaryStorage):
         return super()._save(full_name, content)
 
 
-# --- Storage Class (DEPRECATED/REMOVED) ---
-# When using PostgreSQL/ORM, you typically use Django's default FileSystemStorage 
-# for local files or a third-party package for S3/Cloud storage.
-# The custom GridFSStorage class is no longer needed.
 
-
-# --- Signed URL Generator (RETAINS LOGIC) ---
-# This class for token generation/verification is entirely agnostic to the storage 
 # backend (GridFS, S3, local, etc.) as it only validates access permissions.
 class SignedURLGenerator:
     """Generate signed URLs for secure file access"""
@@ -108,7 +98,7 @@ class SignedURLGenerator:
             return False
 
 
-# --- File Serving Functions (MODIFIED) ---
+# --- File Serving Functions
 
 def serve_file_from_orm(book_instance, request, inline=True):
     """
@@ -118,20 +108,16 @@ def serve_file_from_orm(book_instance, request, inline=True):
     or the FileField object itself.
     """
     try:
-        # Get the actual File object from the model instance
-        file_field = book_instance.file # Assuming 'file' is the name of your FileField
+        file_field = book_instance.file 
         
-        # Check if the file actually exists in the storage
         if not file_field:
             raise Http404("File reference not found on model.")
 
-        # Use the storage's open method to get a file handle
         file_handle = file_field.open('rb')
 
         filename = os.path.basename(file_field.name)
         content_type = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
         
-        # Use FileResponse for efficient streaming
         response = FileResponse(
             file_handle, 
             content_type=content_type
@@ -140,7 +126,7 @@ def serve_file_from_orm(book_instance, request, inline=True):
         disposition = 'inline' if inline else 'attachment'
         response['Content-Disposition'] = f'{disposition}; filename="{quote(filename)}"'
         response['Accept-Ranges'] = 'bytes'
-        response['Content-Length'] = file_field.size # Use file field's size property
+        response['Content-Length'] = file_field.size 
         response['Cache-Control'] = 'private, max-age=3600'
         response['X-Accel-Buffering'] = 'no'
         
@@ -157,7 +143,7 @@ def serve_file_stream(book_instance, request):
     This replaces your GridFS-specific implementation with a more generic approach.
     """
     try:
-        file_field = book_instance.file # Assuming 'file' is the name of your FileField
+        file_field = book_instance.file 
         
         if not file_field or not file_field.storage.exists(file_field.name):
             raise Http404("File not found in storage.")

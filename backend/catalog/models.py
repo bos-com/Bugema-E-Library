@@ -10,7 +10,6 @@ User = get_user_model()
 from .storage import RawMediaCloudinaryStorage
 
 # --- Utility Fields ---
-
 class Author(models.Model):
     """Author Model"""
     name = models.CharField(max_length=255, unique=True)
@@ -67,13 +66,13 @@ class Book(models.Model):
     cover_image = models.ImageField(upload_to='covers/', null=True, blank=True)
     file = models.FileField(upload_to='books/', storage=RawMediaCloudinaryStorage(), null=True, blank=True)
     
-    # Cloudinary metadata - explicitly store public_id and URL for easier retrieval
+    
     cloudinary_public_id = models.CharField(max_length=500, null=True, blank=True, 
                                            help_text="Cloudinary public_id for the file")
     file_url = models.URLField(max_length=500, null=True, blank=True,
                               help_text="Direct Cloudinary URL for the file")
     
-    # Denormalized counters (to match the logic in the seed script)
+    
     view_count = models.PositiveIntegerField(default=0)
     like_count = models.PositiveIntegerField(default=0)
     bookmark_count = models.PositiveIntegerField(default=0)
@@ -88,14 +87,10 @@ class Book(models.Model):
             file_name = getattr(self.file, 'name', '') or ''
             file_url = getattr(self.file, 'url', '') or ''
 
-            # If we have a file name, it often contains the public_id in Cloudinary storage
             if file_name:
-                # Remove leading slash if present
                 clean_name = file_name.lstrip('/')
-                # If it looks like a path (has slashes), it's likely the public_id
                 self.cloudinary_public_id = clean_name
 
-            # Fallback: if public_id is still just a simple filename but url has more info
             if self.file_url and (not self.cloudinary_public_id or '/' not in self.cloudinary_public_id):
                  try:
                     from urllib.parse import urlparse
