@@ -78,7 +78,7 @@ class BookListSerializer(serializers.ModelSerializer):
             return None
         try:
             if hasattr(field, 'url') and field.url:
-                return field.url  # Cloudinary / S3 already gives absolute URL
+                return field.url 
             return None
         except Exception:
             return None

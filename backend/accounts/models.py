@@ -1,9 +1,8 @@
 # accounts/models.py (Adjusted)
 
 from django.db import models
-# Import necessary base classes and manager for custom authentication
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin 
-from django.contrib.auth.hashers import make_password, check_password # Still used for backward compatibility with your methods
+from django.contrib.auth.hashers import make_password, check_password
 from cloudinary.models import CloudinaryField
 import uuid
 
@@ -28,7 +27,6 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         
-        # Ensure staff/superuser fields are set
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
         
@@ -39,18 +37,12 @@ class CustomUserManager(BaseUserManager):
 class User(AbstractBaseUser, PermissionsMixin):
     """User model for authentication and authorization"""
 
-    # --- REQUIRED AUTH CONSTANTS (The Fix) ---
-    USERNAME_FIELD = 'email' # <-- FIX 1: Defines the field used for unique login
-    REQUIRED_FIELDS = ['name'] # <-- FIX 2: Fields required when creating a user (via createsuperuser)
-    objects = CustomUserManager() # <-- FIX 3: Sets the custom manager
-    
-    # --- MODEL FIELDS ---
+    USERNAME_FIELD = 'email' 
+    REQUIRED_FIELDS = ['name']
+    objects = CustomUserManager() 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False) 
-    # Changed to EmailField for robustness, though CharField works if unique=True
     email = models.EmailField(max_length=255, unique=True) 
     name = models.CharField(max_length=255) 
-    # The 'password' field is automatically managed by AbstractBaseUser, 
-    # but we'll keep the CharField definition for compatibility with your existing code logic.
     password = models.CharField(max_length=255) 
     
     # Profile picture stored in Cloudinary
@@ -67,20 +59,15 @@ class User(AbstractBaseUser, PermissionsMixin):
         default=Role.USER,
     )
     
-    # --- Permissions and Status Fields (The Fix) ---
+    # --- Permissions and Status Fields 
     is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)    # <-- FIX 4: Required by Django Admin (for logging in)
-    is_superuser = models.BooleanField(default=False) # <-- FIX 5: Required for top-level admin checks
+    is_staff = models.BooleanField(default=False)    
+    is_superuser = models.BooleanField(default=False) 
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True) 
+    last_seen = models.DateTimeField(null=True, blank=True)
 
-    # --- METHODS ---
-    # We remove the custom set_password/check_password methods as AbstractBaseUser provides them,
-    # but the logic for these functions is fine if you prefer to keep them.
-    # We also remove the custom has_perm/has_module_perms/is_authenticated/is_anonymous methods
-    # as PermissionsMixin and AbstractBaseUser provide them.
-    
     def get_full_name(self):
         return self.name
     
