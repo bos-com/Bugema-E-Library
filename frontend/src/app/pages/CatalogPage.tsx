@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getBooks, toggleBookmark, toggleLike } from '../../lib/api/catalog';
 import LoadingOverlay from '../../components/feedback/LoadingOverlay';
@@ -10,6 +11,13 @@ type ViewMode = 'grid' | 'list';
 const CatalogPage = () => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialCategoryId = searchParams.get('categoryId');
+  const initialCategoryName = searchParams.get('categoryName') ?? '';
+  const [categoryId, setCategoryId] = useState<number | undefined>(
+    initialCategoryId ? Number(initialCategoryId) : undefined,
+  );
+  const [categoryName, setCategoryName] = useState(initialCategoryName);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('catalogViewMode');
     return (saved as ViewMode) || 'grid';
@@ -18,8 +26,8 @@ const CatalogPage = () => {
   const user = useAuthStore((state) => state.user);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['books', { search, page }],
-    queryFn: () => getBooks({ page, query: search }),
+    queryKey: ['books', { search, page, categoryId }],
+    queryFn: () => getBooks({ page, query: search, categories__id: categoryId }),
     placeholderData: keepPreviousData,
     staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
@@ -54,6 +62,18 @@ const CatalogPage = () => {
   useEffect(() => {
     localStorage.setItem('catalogViewMode', viewMode);
   }, [viewMode]);
+
+  // Keep URL in sync with filters
+  useEffect(() => {
+    const params: Record<string, string> = {};
+    if (search) params.search = search;
+    if (page !== 1) params.page = String(page);
+    if (categoryId) {
+      params.categoryId = String(categoryId);
+      if (categoryName) params.categoryName = categoryName;
+    }
+    setSearchParams(params, { replace: true });
+  }, [search, page, categoryId, categoryName, setSearchParams]);
 
   return (
     <div className="space-y-8 animate-in">
@@ -116,13 +136,31 @@ const CatalogPage = () => {
 
       {/* Results Info */}
       {data && (
-        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-          <span className="font-semibold text-slate-900 dark:text-white">{data.count.toLocaleString()}</span>
-          {' '}books found
-          {search && (
-            <span className="ml-1">
-              for <span className="font-semibold text-brand-600 dark:text-brand-400">"{search}"</span>
-            </span>
+        <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-slate-900 dark:text-white">{data.count.toLocaleString()}</span>
+            {' '}books found
+            {search && (
+              <span className="ml-1">
+                for <span className="font-semibold text-brand-600 dark:text-brand-400">"{search}"</span>
+              </span>
+            )}
+          </div>
+          {categoryId && (
+            <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+              <span>Category: {categoryName || `#${categoryId}`}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setCategoryId(undefined);
+                  setCategoryName('');
+                  setPage(1);
+                }}
+                className="rounded-full bg-brand-100 px-2 py-0.5 text-[10px] uppercase tracking-wide hover:bg-brand-200 dark:bg-brand-500/30 dark:hover:bg-brand-500/40"
+              >
+                Clear
+              </button>
+            </div>
           )}
         </div>
       )}
