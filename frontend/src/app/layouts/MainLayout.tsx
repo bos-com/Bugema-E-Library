@@ -16,7 +16,7 @@ const MainLayout = () => {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950">
-      <header className="border-b border-slate-200 bg-white/80 backdrop-blur dark:border-white/5 dark:bg-slate-950/80">
+      <header className="relative z-40 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-white/5 dark:bg-slate-950/80">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link
             to="/"

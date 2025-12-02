@@ -87,80 +87,80 @@ const BookForm = ({ defaultValues, onSubmit, isLoading }: BookFormProps) => {
     <form onSubmit={submitHandler} className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label className="text-xs font-semibold text-slate-400">Title</label>
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Title</label>
           <input
             {...register('title')}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900 px-4 py-2 text-sm text-white"
+            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-white"
           />
           {errors.title && <p className="text-xs text-red-400">{errors.title.message}</p>}
         </div>
         <div>
-          <label className="text-xs font-semibold text-slate-400">Author</label>
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Author</label>
           <input
             {...register('author_name')}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900 px-4 py-2 text-sm text-white"
+            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-white"
           />
           {errors.author_name && <p className="text-xs text-red-400">{errors.author_name.message}</p>}
         </div>
       </div>
 
       <div>
-        <label className="text-xs font-semibold text-slate-400">Description</label>
+        <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Description</label>
         <textarea
           {...register('description')}
           rows={4}
-          className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900 px-4 py-2 text-sm text-white"
+          className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-white"
         />
         {errors.description && <p className="text-xs text-red-400">{errors.description.message}</p>}
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <div>
-          <label className="text-xs font-semibold text-slate-400">ISBN</label>
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">ISBN</label>
           <input
             {...register('isbn')}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900 px-4 py-2 text-sm text-white"
+            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-white"
           />
           {errors.isbn && <p className="text-xs text-red-400">{errors.isbn.message}</p>}
         </div>
         <div>
-          <label className="text-xs font-semibold text-slate-400">Language</label>
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Language</label>
           <input
             {...register('language')}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900 px-4 py-2 text-sm text-white"
+            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-white"
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-slate-400">Year</label>
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Year</label>
           <input
             type="number"
             {...register('year')}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900 px-4 py-2 text-sm text-white"
+            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-white"
           />
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
         <div>
-          <label className="text-xs font-semibold text-slate-400">Pages</label>
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Pages</label>
           <input
             type="number"
             {...register('pages')}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900 px-4 py-2 text-sm text-white"
+            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-white"
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-slate-400">File Type</label>
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">File Type</label>
           <select
             {...register('file_type')}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900 px-4 py-2 text-sm text-white"
+            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-white"
           >
             <option value="PDF">PDF</option>
             <option value="EPUB">EPUB</option>
             <option value="VIDEO">Video</option>
           </select>
         </div>
-        <label className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+        <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-400">
           <input type="checkbox" {...register('is_published')} className="h-4 w-4" />
           Published
         </label>
@@ -168,38 +168,42 @@ const BookForm = ({ defaultValues, onSubmit, isLoading }: BookFormProps) => {
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label className="text-xs font-semibold text-slate-400">Tags (comma separated)</label>
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">
+            Tags (comma separated)
+          </label>
           <input
             {...register('tags')}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900 px-4 py-2 text-sm text-white"
+            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-white"
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-slate-400">Categories (comma separated)</label>
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">
+            Categories (comma separated)
+          </label>
           <input
             {...register('category_names')}
-            className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900 px-4 py-2 text-sm text-white"
+            className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-white"
           />
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label className="text-xs font-semibold text-slate-400">Cover Image</label>
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Cover Image</label>
           <input
             type="file"
             accept="image/*"
             {...register('cover_image')}
-            className="mt-2 block w-full text-sm text-slate-200"
+            className="mt-2 block w-full text-sm text-slate-600 dark:text-slate-200"
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-slate-400">Book File</label>
+          <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Book File</label>
           <input
             type="file"
             accept={watch('file_type') === 'VIDEO' ? 'video/*' : '.pdf,.epub'}
             {...register('file')}
-            className="mt-2 block w-full text-sm text-slate-200"
+            className="mt-2 block w-full text-sm text-slate-600 dark:text-slate-200"
           />
         </div>
       </div>
