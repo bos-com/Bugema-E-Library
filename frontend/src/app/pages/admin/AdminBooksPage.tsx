@@ -90,16 +90,21 @@ const AdminBooksPage = () => {
               {data?.results.map((book) => (
                 <div
                   key={book.id}
-                  className={`rounded-2xl border p-4 transition ${selectedBook?.id === book.id
-                    ? 'border-brand-500 bg-brand-500/10'
-                    : 'border-white/10 bg-white/5'
-                    }`}
+                  className={`rounded-2xl border p-4 transition ${
+                    selectedBook?.id === book.id
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10'
+                      : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900/40'
+                  }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <p className="text-xs uppercase tracking-[0.3em] text-brand-200">{book.author}</p>
-                      <h3 className="text-lg font-semibold text-white">{book.title}</h3>
-                      <p className="text-xs text-slate-500">{book.is_published ? 'Published' : 'Draft'}</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 dark:text-brand-200">
+                        {book.author}
+                      </p>
+                      <h3 className="text-base font-semibold text-slate-900 dark:text-white">{book.title}</h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {book.is_published ? 'Published' : 'Draft'}
+                      </p>
                     </div>
                     <div className="flex gap-2">
                       <button
@@ -118,7 +123,9 @@ const AdminBooksPage = () => {
                       </button>
                     </div>
                   </div>
-                  <p className="mt-2 line-clamp-2 text-sm text-slate-400">{book.description}</p>
+                  <p className="mt-2 line-clamp-2 text-sm text-slate-600 dark:text-slate-400">
+                    {book.description}
+                  </p>
                 </div>
               ))}
             </div>
@@ -127,10 +134,10 @@ const AdminBooksPage = () => {
         <div className="card p-5">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-white">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
                 {selectedBook ? 'Edit Book' : 'Create Book'}
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-600 dark:text-slate-500">
                 {selectedBook ? `Editing: ${selectedBook.title} ` : 'Add a new book to the library'}
               </p>
             </div>
