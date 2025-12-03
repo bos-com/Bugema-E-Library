@@ -12,6 +12,7 @@ from .serializers import ReadingProgressSerializer, ReadingSessionSerializer, Hi
 # Assuming ReadingStatsSerializer is also available, though not used directly in views.
 # from .serializers import ReadingStatsSerializer 
 from catalog.models import Book, BookLike, Bookmark
+from analytics.models import BookView
 def _absolute_media_url(request, file_field):
     if not file_field:
         return None
@@ -281,6 +282,12 @@ def start_reading_session(request, book_id):
         book=book,
         ended_at__isnull=True
     ).update(ended_at=timezone.now())
+    
+    # Create BookView record for analytics
+    BookView.objects.create(
+        user=request.user,
+        book=book
+    )
     
     # Start new session
     # FIX: Converted MongoEngine create to Django ORM create

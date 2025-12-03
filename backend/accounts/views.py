@@ -125,9 +125,10 @@ class AdminUserViewSet(viewsets.ModelViewSet):
     Admin ViewSet for managing users.
     Supports listing, updating roles, and deleting users.
     """
-    queryset = User.objects.all().order_by('role', 'name') # Admins first (assuming 'ADMIN' < 'USER' alphabetically? No, 'ADMIN' comes before 'USER')
+    queryset = User.objects.all().order_by('role', 'name')
     serializer_class = AdminUserListSerializer
     permission_classes = [IsAdminRole]
+    pagination_class = None  # Disable pagination to return plain array
     http_method_names = ['get', 'patch', 'delete', 'head', 'options']
 
     def get_queryset(self):

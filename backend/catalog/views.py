@@ -26,6 +26,7 @@ from .serializers import (
 )
 from accounts.permissions import IsAdminRole
 from rest_framework.parsers import MultiPartParser, FormParser
+from analytics.models import BookView
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -110,7 +111,17 @@ class BookViewSet(viewsets.ModelViewSet):
         """Re-implement the view count logic from the old BookDetailView"""
         try:
             instance = self.get_object()
+            
+            # Increment view count
             Book.objects.filter(pk=instance.pk).update(view_count=F('view_count') + 1)
+            
+            # Create BookView record for analytics (only for authenticated users)
+            if request.user.is_authenticated:
+                BookView.objects.create(
+                    user=request.user,
+                    book=instance
+                )
+            
             instance.refresh_from_db()
 
             serializer = self.get_serializer(instance)
