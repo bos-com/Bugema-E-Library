@@ -5,10 +5,12 @@ import { getUsers, updateUserRole, deleteUser } from '../../../lib/api/admin';
 import { AdminUser } from '../../../lib/types';
 import { useAuthStore } from '../../../lib/store/auth';
 import LoadingOverlay from '../../../components/feedback/LoadingOverlay';
+import ConfirmDialog from '../../../components/ConfirmDialog';
 
 const AdminUsersPage = () => {
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; userId: string | null; userName: string }>({ isOpen: false, userId: null, userName: '' });
     const { user: currentUser } = useAuthStore();
 
     useEffect(() => {
@@ -37,10 +39,18 @@ const AdminUsersPage = () => {
         }
     };
 
-    const handleDeleteUser = async (userId: string) => {
-        if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+    const openDeleteDialog = (userId: string, userName: string) => {
+        setDeleteDialog({ isOpen: true, userId, userName });
+    };
+
+    const closeDeleteDialog = () => {
+        setDeleteDialog({ isOpen: false, userId: null, userName: '' });
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteDialog.userId) return;
         try {
-            await deleteUser(userId);
+            await deleteUser(deleteDialog.userId);
             toast.success('User deleted successfully');
             loadUsers();
         } catch (error) {
@@ -113,7 +123,7 @@ const AdminUsersPage = () => {
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <button
-                                            onClick={() => handleDeleteUser(user.id)}
+                                            onClick={() => openDeleteDialog(user.id, user.name)}
                                             className="p-2 text-slate-400 hover:text-red-400 transition-colors"
                                             title="Delete User"
                                             disabled={user.id === currentUser?.id}
@@ -127,6 +137,17 @@ const AdminUsersPage = () => {
                     </table>
                 </div>
             </div>
+
+            <ConfirmDialog
+                isOpen={deleteDialog.isOpen}
+                onClose={closeDeleteDialog}
+                onConfirm={confirmDelete}
+                title="Delete User"
+                message={`Are you sure you want to delete ${deleteDialog.userName}? This action cannot be undone.`}
+                confirmText="Delete"
+                cancelText="Cancel"
+                isDangerous={true}
+            />
         </div>
     );
 };
