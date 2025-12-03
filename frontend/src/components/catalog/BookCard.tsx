@@ -35,15 +35,22 @@ const BookCard = memo(({ book, viewMode, onLike, onBookmark }: BookCardProps) =>
                     <h3 className="mt-1 text-base font-semibold text-slate-900 dark:text-white line-clamp-2">{book.title}</h3>
                     <p className="mt-1 line-clamp-2 text-xs text-slate-600 dark:text-slate-400">{book.description}</p>
                 </div>
-                <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                    <span>{book.language}</span>•<span>{book.file_type}</span>
+                <div className="flex items-center gap-2 text-[10px]">
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">{book.language}</span>
+                    <span className="rounded bg-rose-100 px-1.5 py-0.5 font-medium text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">{book.file_type}</span>
                     {book.reading_progress && (
                         <span className="ml-auto text-brand-600 dark:text-brand-200">{Math.round(book.reading_progress.percent)}%</span>
                     )}
                 </div>
-                <div className="flex flex-wrap gap-1.5 text-[10px] text-slate-400">
+                <div className="flex flex-wrap gap-1.5 text-[10px]">
                     {Array.isArray(book.tags) ? book.tags.slice(0, 3).map((tag) => (
-                        <span key={tag} className="rounded-full border border-slate-200 px-2 py-0.5 dark:border-white/10">
+                        <span
+                            key={tag}
+                            className={`rounded-full px-2 py-0.5 font-medium ${tag.toLowerCase() === 'new'
+                                    ? 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300'
+                                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                }`}
+                        >
                             #{tag}
                         </span>
                     )) : null}
@@ -112,15 +119,22 @@ const BookCard = memo(({ book, viewMode, onLike, onBookmark }: BookCardProps) =>
                     <h3 className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{book.title}</h3>
                     <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-400">{book.description}</p>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <span>{book.language}</span>•<span>{book.file_type}</span>
+                <div className="flex items-center gap-2 text-xs">
+                    <span className="rounded bg-slate-100 px-2 py-0.5 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">{book.language}</span>
+                    <span className="rounded bg-rose-100 px-2 py-0.5 font-medium text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">{book.file_type}</span>
                     {book.reading_progress && (
                         <span className="ml-auto text-brand-600 dark:text-brand-200">{Math.round(book.reading_progress.percent)}%</span>
                     )}
                 </div>
-                <div className="flex flex-wrap gap-1.5 text-xs text-slate-400">
+                <div className="flex flex-wrap gap-1.5 text-xs">
                     {Array.isArray(book.tags) ? book.tags.slice(0, 5).map((tag) => (
-                        <span key={tag} className="rounded-full border border-slate-200 px-2 py-0.5 dark:border-white/10">
+                        <span
+                            key={tag}
+                            className={`rounded-full px-2.5 py-0.5 font-medium ${tag.toLowerCase() === 'new'
+                                    ? 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300'
+                                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                }`}
+                        >
                             #{tag}
                         </span>
                     )) : null}

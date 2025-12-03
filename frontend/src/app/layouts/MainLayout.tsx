@@ -27,7 +27,7 @@ const MainLayout = () => {
               alt="Bugema University logo"
               className="h-8 w-8 rounded-full object-cover"
             />
-            <span>Bugema University E-Library</span>
+            <span className="hidden md:inline">Bugema University E-Library</span>
           </Link>
 
           <nav className="hidden gap-6 text-sm font-medium text-slate-600 dark:text-slate-300 md:flex">
@@ -64,7 +64,7 @@ const MainLayout = () => {
                 <Link to="/login" className="text-sm font-medium text-slate-900 dark:text-white">
                   Login
                 </Link>
-                <Link to="/register" className="btn-primary text-sm">
+                <Link to="/register" className="hidden btn-primary text-sm md:inline-flex">
                   Register
                 </Link>
               </div>
