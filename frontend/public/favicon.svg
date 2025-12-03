@@ -1,5 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
-  <path fill="#EF4444" d="M4 4a2 2 0 012-2h8l6 6v10a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/>
-  <path fill="#FCA5A5" d="M14 2v4a2 2 0 002 2h4"/>
-  <path stroke="#fff" stroke-width="1.5" stroke-linecap="round" d="M9 11h6M9 15h6"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#9333ea;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#grad1)"/>
+  
+  <!-- Person reading icon -->
+  <g fill="white">
+    <!-- Head -->
+    <circle cx="256" cy="160" r="50"/>
+    
+    <!-- Book -->
+    <path d="M140 240 C160 230, 200 210, 256 220 C312 210, 352 230, 372 240 L372 380 C352 370, 312 350, 256 360 C200 350, 160 370, 140 380 Z"/>
+    
+    <!-- Book spine -->
+    <rect x="251" y="220" width="10" height="160" opacity="0.3"/>
+    
+    <!-- Hands -->
+    <circle cx="170" cy="300" r="28"/>
+    <circle cx="342" cy="300" r="28"/>
+  </g>
 </svg>

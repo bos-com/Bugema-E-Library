@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import MainLayout from '../app/layouts/MainLayout';
 import AuthLayout from '../app/layouts/AuthLayout';
+import SimpleAuthLayout from '../app/layouts/SimpleAuthLayout';
 import AdminLayout from '../app/layouts/AdminLayout';
 import HomePage from '../app/pages/HomePage';
 import CatalogPage from '../app/pages/CatalogPage';
@@ -10,6 +11,9 @@ import DashboardPage from '../app/pages/DashboardPage';
 import ProfilePage from '../app/pages/ProfilePage';
 import LoginPage from '../app/pages/LoginPage';
 import RegisterPage from '../app/pages/RegisterPage';
+import ForgotPasswordPage from '../app/pages/ForgotPasswordPage';
+import ResetCodePage from '../app/pages/ResetCodePage';
+import NewPasswordPage from '../app/pages/NewPasswordPage';
 import AdminOverviewPage from '../app/pages/admin/AdminOverviewPage';
 import AdminUsersPage from '../app/pages/admin/AdminUsersPage';
 import AdminBooksPage from '../app/pages/admin/AdminBooksPage';
@@ -52,6 +56,12 @@ const AppRoutes = () => (
     <Route element={<AuthLayout />}>
       <Route path="login" element={<LoginPage />} />
       <Route path="register" element={<RegisterPage />} />
+    </Route>
+
+    <Route element={<SimpleAuthLayout />}>
+      <Route path="forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="reset-code" element={<ResetCodePage />} />
+      <Route path="new-password" element={<NewPasswordPage />} />
     </Route>
 
     <Route

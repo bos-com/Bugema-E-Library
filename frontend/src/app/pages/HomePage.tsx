@@ -21,7 +21,7 @@ const HomePage = () => {
       <section className="grid gap-10 lg:grid-cols-2">
         <div className="space-y-6">
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 dark:text-white/70">
-            
+
           </p>
           <h1 className="text-5xl font-bold leading-tight text-slate-900 dark:text-white md:text-6xl">
             Your Gateway to{' '}
@@ -55,7 +55,7 @@ const HomePage = () => {
               variant="blue"
               label="Categories"
               value={categories?.length ?? 0}
-              hint="Curated academic subjects"
+              hint="Curated academic courses"
               icon={
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -111,7 +111,7 @@ const HomePage = () => {
           <div>
             <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Browse by Category</h2>
             <p className="mt-2 text-slate-600 dark:text-slate-400">
-              Explore Bugema University subjects and collections
+              Explore Bugema University courses and collections
             </p>
           </div>
           <Link
@@ -137,7 +137,7 @@ const HomePage = () => {
                     {category.name}
                   </p>
                   <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                    {category.description ?? 'Browse books and resources available in this Bugema University subject area.'}
+                    {category.description ?? 'Browse books and resources available in this Bugema University course area.'}
                   </p>
                   <div className="mt-4 flex items-center gap-2">
                     <span className="badge badge-blue">{category.book_count ?? 0} books</span>

@@ -11,20 +11,22 @@ const AuthLayout = () => (
 
       <div className="mt-6 flex flex-1">
         {/* Left illustration panel */}
-        <div className="hidden flex-1 lg:flex">
-          <div className="flex w-full flex-col justify-between bg-slate-50 px-8 py-10 dark:bg-black/5">
+        <div className="hidden lg:flex lg:w-[55%]">
+          <div className="flex w-full flex-col justify-between bg-slate-50 px-12 py-10 dark:bg-black/5">
             <div className="flex flex-1 flex-col justify-center">
               <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 dark:text-white/70">
                 Bugema University E-Library
               </p>
               <h1 className="mt-4 text-4xl font-bold leading-tight text-slate-900 dark:text-white">
-                Study from Anywhere,
+                <span className="bg-gradient-to-r from-sky-400 to-blue-600 bg-clip-text text-transparent dark:from-sky-300 dark:to-blue-400">
+                  Study from Anywhere,
+                </span>
                 <br />
-                <span className="bg-gradient-to-r from-brand-600 to-violet-600 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-blue-500 to-violet-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-violet-500">
                   Access the Library Online
                 </span>
               </h1>
-              <p className="mt-4 max-w-sm text-sm text-slate-600 dark:text-white/70">
+              <p className="mt-4 max-w-md text-sm text-slate-600 dark:text-white/70">
                 Find course texts, recommended readings, and research materials prepared for Bugema University
                 students and staff &mdash; Excellence in Service.
               </p>
@@ -78,8 +80,8 @@ const AuthLayout = () => (
         </div>
 
         {/* Right form panel */}
-        <div className="flex flex-1 flex-col items-center justify-center bg-white px-6 py-10 lg:items-start lg:px-10 dark:bg-transparent">
-          <div className="w-full max-w-md space-y-10 lg:max-w-sm">
+        <div className="flex flex-1 lg:w-[45%] flex-col items-center justify-center bg-white px-8 py-10 lg:px-16 dark:bg-transparent">
+          <div className="w-full max-w-md space-y-10">
             <Link to="/" className="text-sm font-semibold text-slate-900 dark:text-white">
               ← Back to Home
             </Link>

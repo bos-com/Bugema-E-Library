@@ -20,7 +20,7 @@ a {
 
 /* Primary Buttons */
 .btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 px-6 py-3 font-semibold text-white shadow-lg shadow-brand-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-brand-500/40 hover:scale-105 focus:ring-4 focus:ring-brand-500/30 active:scale-95;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 font-semibold text-white shadow-lg shadow-purple-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/40 hover:scale-105 focus:ring-4 focus:ring-purple-500/30 active:scale-95;
 }
 
 .btn-secondary {
