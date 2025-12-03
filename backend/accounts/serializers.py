@@ -3,6 +3,8 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import User 
 from django.db import models
+from django.utils import timezone
+from datetime import timedelta
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -13,12 +15,17 @@ class UserSerializer(serializers.ModelSerializer):
     role = serializers.CharField(read_only=True)
     is_active = serializers.BooleanField(read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
-    profile_picture = serializers.ImageField(required=False, allow_null=True)
+    profile_picture = serializers.SerializerMethodField()
 
     class Meta:
         model = User
        
         fields = ['id', 'email', 'name', 'role', 'is_active', 'created_at', 'profile_picture']
+
+    def get_profile_picture(self, obj):
+        if obj.profile_picture:
+            return obj.profile_picture.url
+        return None
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -66,3 +73,24 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 'refresh': data['refresh']
             }
         }
+
+
+class AdminUserListSerializer(serializers.ModelSerializer):
+    """Serializer for Admin to view user list with online status"""
+    is_online = serializers.SerializerMethodField()
+    profile_picture = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['id', 'name', 'email', 'role', 'last_seen', 'is_online', 'profile_picture']
+
+    def get_is_online(self, obj):
+        if obj.last_seen:
+            # User is online if last_seen is within the last 5 minutes
+            return timezone.now() - obj.last_seen < timedelta(minutes=5)
+        return False
+
+    def get_profile_picture(self, obj):
+        if obj.profile_picture:
+            return obj.profile_picture.url
+        return None

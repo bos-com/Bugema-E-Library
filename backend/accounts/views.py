@@ -114,95 +114,51 @@ def update_profile(request):
         )
 
 
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from .serializers import AdminUserListSerializer
+
 # --- ADMIN VIEWS ---
 
-class AdminUserListView(generics.ListAPIView):
-    """List all users with online status for admins"""
-    serializer_class = UserSerializer
+class AdminUserViewSet(viewsets.ModelViewSet):
+    """
+    Admin ViewSet for managing users.
+    Supports listing, updating roles, and deleting users.
+    """
+    queryset = User.objects.all().order_by('role', 'name') # Admins first (assuming 'ADMIN' < 'USER' alphabetically? No, 'ADMIN' comes before 'USER')
+    serializer_class = AdminUserListSerializer
     permission_classes = [IsAdminRole]
-    queryset = User.objects.all().order_by('-created_at')
+    http_method_names = ['get', 'patch', 'delete', 'head', 'options']
 
-    def list(self, request, *args, **kwargs):
-        try:
-            queryset = self.get_queryset()
-            serializer = self.get_serializer(queryset, many=True)
-            
-            # Add online status
-            data = serializer.data
-            now = timezone.now()
-            threshold = now - timedelta(minutes=5)
-            
-            for user_data in data:
-                try:
-                    user = User.objects.get(id=user_data['id'])
-                    # Check if user was active recently (using last_login as proxy for now)
-                    # Ideally we'd have a middleware updating 'last_activity'
-                    is_online = user.last_login and user.last_login > threshold
-                    user_data['is_online'] = bool(is_online)
-                except User.DoesNotExist:
-                    user_data['is_online'] = False
-                
-            return Response(data)
-        except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Admin user list error: {str(e)}", exc_info=True)
-            
-            return Response(
-                {'error': 'Failed to fetch users', 'detail': str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+    def get_queryset(self):
+        # Ensure Admins are first. 
+        # If 'role' is just a string, 'ADMIN' comes before 'USER'.
+        return User.objects.all().order_by('role', 'name')
 
-
-@api_view(['PATCH'])
-@permission_classes([IsAdminRole])
-def admin_update_user_role(request, user_id):
-    """Promote or demote a user"""
-    try:
-        user = User.objects.get(id=user_id)
+    @action(detail=True, methods=['patch'])
+    def assign_role(self, request, pk=None):
+        """Assign a new role to a user"""
+        user = self.get_object()
         new_role = request.data.get('role')
         
         if new_role not in ['ADMIN', 'USER']:
             return Response({'error': 'Invalid role'}, status=status.HTTP_400_BAD_REQUEST)
         
+        # Prevent demoting the last admin or self-demotion if needed (optional safety)
+        if user.id == request.user.id and new_role != 'ADMIN':
+             return Response({'error': 'Cannot demote yourself'}, status=status.HTTP_400_BAD_REQUEST)
+
         user.role = new_role
         user.is_staff = (new_role == 'ADMIN')
+        user.is_superuser = (new_role == 'ADMIN') # Optional: Grant superuser if admin
         user.save()
         
-        return Response(UserSerializer(user).data)
-    except User.DoesNotExist:
-        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Admin update user role error for user {user_id}: {str(e)}", exc_info=True)
-        
-        return Response(
-            {'error': 'Failed to update user role', 'detail': str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        serializer = self.get_serializer(user)
+        return Response(serializer.data)
 
-
-@api_view(['DELETE'])
-@permission_classes([IsAdminRole])
-def admin_delete_user(request, user_id):
-    """Delete a user"""
-    try:
-        user = User.objects.get(id=user_id)
-        # Prevent deleting self
+    def destroy(self, request, *args, **kwargs):
+        """Delete a user"""
+        user = self.get_object()
         if user.id == request.user.id:
-             return Response({'error': 'Cannot delete yourself'}, status=status.HTTP_400_BAD_REQUEST)
-             
-        user.delete()
-        return Response({'message': 'User deleted successfully'})
-    except User.DoesNotExist:
-        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Admin delete user error for user {user_id}: {str(e)}", exc_info=True)
-        
-        return Response(
-            {'error': 'Failed to delete user', 'detail': str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+            return Response({'error': 'Cannot delete yourself'}, status=status.HTTP_400_BAD_REQUEST)
+        return super().destroy(request, *args, **kwargs)

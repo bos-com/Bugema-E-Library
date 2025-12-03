@@ -208,7 +208,8 @@ CORS_ALLOWED_ORIGINS_STR = os.getenv(
     'CORS_ALLOWED_ORIGINS', 
     'https://bugema-e-library.vercel.app,http://localhost:5174,http://localhost:3000'
 )
-CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS_STR.split(',') if origin.strip()]
+# Strip trailing slashes to avoid mismatches
+CORS_ALLOWED_ORIGINS = [origin.strip().rstrip('/') for origin in CORS_ALLOWED_ORIGINS_STR.split(',') if origin.strip()]
 
 # Also allow any Vercel preview deployments
 CORS_ALLOWED_ORIGIN_REGEXES = [
@@ -216,6 +217,13 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+# CSRF Configuration
+CSRF_TRUSTED_ORIGINS_STR = os.getenv(
+    'CSRF_TRUSTED_ORIGINS',
+    'https://bugema-e-library.vercel.app'
+)
+CSRF_TRUSTED_ORIGINS = [origin.strip().rstrip('/') for origin in CSRF_TRUSTED_ORIGINS_STR.split(',') if origin.strip()]
 
 # Spectacular (OpenAPI) Configuration
 SPECTACULAR_SETTINGS = {
