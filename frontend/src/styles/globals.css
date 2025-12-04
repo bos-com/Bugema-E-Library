@@ -20,7 +20,7 @@ a {
 
 /* Primary Buttons */
 .btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 font-semibold text-white shadow-lg shadow-purple-500/30 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/40 hover:scale-105 focus:ring-4 focus:ring-purple-500/30 active:scale-95;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 px-6 py-3 font-semibold text-white shadow-lg shadow-purple-500/30 transition-all duration-300 hover:text-white hover:shadow-xl hover:shadow-purple-500/40 hover:scale-105 focus:ring-4 focus:ring-purple-500/30 active:scale-95;
 }
 
 .btn-secondary {
@@ -29,23 +29,23 @@ a {
 
 /* Gradient Buttons */
 .btn-gradient-emerald {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3 font-semibold text-white shadow-lg shadow-emerald-500/30 transition-all duration-300 hover:from-emerald-600 hover:to-emerald-700 hover:shadow-xl hover:shadow-emerald-500/40 hover:scale-105;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-6 py-3 font-semibold text-white shadow-lg shadow-emerald-500/30 transition-all duration-300 hover:text-white hover:from-emerald-600 hover:to-emerald-700 hover:shadow-xl hover:shadow-emerald-500/40 hover:scale-105;
 }
 
 .btn-gradient-violet {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-violet-600 px-6 py-3 font-semibold text-white shadow-lg shadow-violet-500/30 transition-all duration-300 hover:from-violet-600 hover:to-violet-700 hover:shadow-xl hover:shadow-violet-500/40 hover:scale-105;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-violet-600 px-6 py-3 font-semibold text-white shadow-lg shadow-violet-500/30 transition-all duration-300 hover:text-white hover:from-violet-600 hover:to-violet-700 hover:shadow-xl hover:shadow-violet-500/40 hover:scale-105;
 }
 
 .btn-gradient-amber {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-6 py-3 font-semibold text-white shadow-lg shadow-amber-500/30 transition-all duration-300 hover:from-amber-600 hover:to-amber-700 hover:shadow-xl hover:shadow-amber-500/40 hover:scale-105;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-6 py-3 font-semibold text-white shadow-lg shadow-amber-500/30 transition-all duration-300 hover:text-white hover:from-amber-600 hover:to-amber-700 hover:shadow-xl hover:shadow-amber-500/40 hover:scale-105;
 }
 
 .btn-gradient-rose {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-6 py-3 font-semibold text-white shadow-lg shadow-rose-500/30 transition-all duration-300 hover:from-rose-600 hover:to-rose-700 hover:shadow-xl hover:shadow-rose-500/40 hover:scale-105;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-6 py-3 font-semibold text-white shadow-lg shadow-rose-500/30 transition-all duration-300 hover:text-white hover:from-rose-600 hover:to-rose-700 hover:shadow-xl hover:shadow-rose-500/40 hover:scale-105;
 }
 
 .btn-gradient-cyan {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-600 px-6 py-3 font-semibold text-white shadow-lg shadow-cyan-500/30 transition-all duration-300 hover:from-cyan-600 hover:to-cyan-700 hover:shadow-xl hover:shadow-cyan-500/40 hover:scale-105;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-600 px-6 py-3 font-semibold text-white shadow-lg shadow-cyan-500/30 transition-all duration-300 hover:text-white hover:from-cyan-600 hover:to-cyan-700 hover:shadow-xl hover:shadow-cyan-500/40 hover:scale-105;
 }
 
 .btn-icon {
@@ -178,6 +178,7 @@ a {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

@@ -1,5 +1,6 @@
 import { Link, Outlet } from 'react-router-dom';
 import ThemeToggle from '../../components/ThemeToggle';
+import bugemaLogo from '../../../bugema.webp';
 
 const AuthLayout = () => (
   <div className="flex min-h-screen bg-white text-slate-900 dark:bg-gradient-to-r dark:from-sky-700 dark:via-slate-900 dark:to-black dark:text-white">
@@ -14,9 +15,12 @@ const AuthLayout = () => (
         <div className="hidden lg:flex lg:w-[55%]">
           <div className="flex w-full flex-col justify-between bg-slate-50 px-12 py-10 dark:bg-black/5">
             <div className="flex flex-1 flex-col justify-center">
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500 dark:text-white/70">
-                Bugema University E-Library
-              </p>
+              <div className="flex items-center gap-3">
+                <img src={bugemaLogo} alt="Bugema University" className="h-8 w-8 rounded-full object-cover" />
+                <p className="text-xs font-bold uppercase tracking-[0.35em] text-slate-500 dark:text-white/70">
+                  Bugema University E-Library
+                </p>
+              </div>
               <h1 className="mt-4 text-4xl font-bold leading-tight text-slate-900 dark:text-white">
                 <span className="bg-gradient-to-r from-sky-400 to-blue-600 bg-clip-text text-transparent dark:from-sky-300 dark:to-blue-400">
                   Study from Anywhere,
