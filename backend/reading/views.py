@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta
-from django.db.models import Sum, Q # For advanced querying and lookups
+from django.db.models import Sum, Avg, Q # For advanced querying and lookups
 
 from .models import ReadingProgress, ReadingSession, Highlight
 from .serializers import ReadingProgressSerializer, ReadingSessionSerializer, HighlightSerializer
@@ -196,20 +196,46 @@ def user_dashboard(request):
         # Reading goal progress (assuming 12 books per year)
         reading_goal_progress = min(total_books_read / 12 * 100, 100)
         
+        # Calculate average session duration
+        avg_session = ReadingSession.objects.filter(
+            user=user,
+            ended_at__isnull=False
+        ).aggregate(avg=Avg('duration_seconds'))
+        average_session_seconds = avg_session['avg'] or 0
+        
         # Get total likes and bookmarks for this user
         total_likes = BookLike.objects.filter(user=user).count()
         total_bookmarks = Bookmark.objects.filter(user=user).count()
+        
+        # Calculate daily activity for the last 14 days
+        daily_activity = []
+        for i in range(14):
+            date = today - timedelta(days=i)
+            # Filter sessions that started on this date
+            day_sessions = ReadingSession.objects.filter(
+                user=user,
+                started_at__date=date,
+                ended_at__isnull=False
+            ).aggregate(total_time=Sum('duration_seconds'))
+            
+            daily_activity.append({
+                'date': date.strftime('%Y-%m-%d'),
+                'minutes': round((day_sessions['total_time'] or 0) / 60)
+            })
+        daily_activity.reverse() # Show oldest to newest
         
         stats = {
             'total_books_read': total_books_read,
             'total_time_seconds': total_time_seconds,
             'total_pages_read': total_pages_read,
             'current_streak_days': current_streak_days,
-            'longest_streak_days': longest_streak, # Still 0/placeholder
+            'longest_streak_days': longest_streak,
             'favorite_category': favorite_category,
             'reading_goal_progress': reading_goal_progress,
             'total_likes': total_likes,
             'total_bookmarks': total_bookmarks,
+            'average_session_seconds': average_session_seconds,
+            'daily_activity': daily_activity,
         }
         
         # Mapping logic for response data remains the same

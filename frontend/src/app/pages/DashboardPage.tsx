@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { getDashboard } from '../../lib/api/reading';
 import LoadingOverlay from '../../components/feedback/LoadingOverlay';
 import StatCard from '../../components/cards/StatCard';
 
 
 const DashboardPage = () => {
+  const navigate = useNavigate();
   const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: getDashboard });
 
   if (isLoading) {
@@ -22,6 +24,10 @@ const DashboardPage = () => {
     );
   }
 
+  // Calculate completion rate
+  const totalBooks = (data.completed?.length || 0) + (data.in_progress?.length || 0);
+  const completionRate = totalBooks > 0 ? Math.round(((data.completed?.length || 0) / totalBooks) * 100) : 0;
+
   return (
     <div className="space-y-8 animate-in">
       {/* Page Header */}
@@ -35,72 +41,89 @@ const DashboardPage = () => {
 
       {/* Statistics Grid */}
       <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
-        <StatCard
-          variant="blue"
-          label="Books Completed"
-          value={data?.stats.total_books_read}
-          icon={
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-          }
-          hint="Total finished"
-        />
-        <StatCard
-          variant="emerald"
-          label="Pages Read"
-          value={data?.stats.total_pages_read.toLocaleString()}
-          icon={
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          }
-          hint="All time"
-        />
-        <StatCard
-          variant="violet"
-          label="Time Reading"
-          value={`${Math.round((data?.stats.total_time_seconds || 0) / 3600)}h`}
-          icon={
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          }
-          hint="Hours spent"
-        />
-        <StatCard
-          variant="amber"
-          label="Goal Progress"
-          value={`${Math.round(data?.stats.reading_goal_progress || 0)}%`}
-          icon={
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-            </svg>
-          }
-          hint="This month"
-        />
-        <StatCard
-          variant="rose"
-          label="Total Likes"
-          value={data?.stats.total_likes || 0}
-          icon={
-            <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-            </svg>
-          }
-          hint="Favorites"
-        />
-        <StatCard
-          variant="cyan"
-          label="Bookmarks"
-          value={data?.stats.total_bookmarks || 0}
-          icon={
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-            </svg>
-          }
-          hint="Saved items"
-        />
+        <div onClick={() => navigate('/library?status=completed')} className="cursor-pointer transition-transform hover:scale-105">
+          <StatCard
+            variant="blue"
+            label="Books Completed"
+            value={data?.stats.total_books_read}
+            icon={
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+            }
+            hint="Total finished"
+          />
+        </div>
+
+        <div onClick={() => navigate('/analytics')} className="cursor-pointer transition-transform hover:scale-105">
+          <StatCard
+            variant="emerald"
+            label="Pages Read"
+            value={data?.stats.total_pages_read.toLocaleString()}
+            icon={
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            }
+            hint="All time"
+          />
+        </div>
+
+        <div onClick={() => navigate('/analytics')} className="cursor-pointer transition-transform hover:scale-105">
+          <StatCard
+            variant="violet"
+            label="Time Reading"
+            value={`${Math.round((data?.stats.total_time_seconds || 0) / 3600)}h`}
+            icon={
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            }
+            hint="Hours spent"
+          />
+        </div>
+
+        <div onClick={() => navigate('/analytics')} className="cursor-pointer transition-transform hover:scale-105">
+          <StatCard
+            variant="amber"
+            label="Current Streak"
+            value={`${data?.stats.current_streak_days || 0}`}
+            icon={
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            }
+            hint="Days in a row"
+          />
+        </div>
+
+        <div onClick={() => navigate('/analytics')} className="cursor-pointer transition-transform hover:scale-105">
+          <StatCard
+            variant="rose"
+            label="Avg. Session"
+            value={`${Math.round((data?.stats.average_session_seconds || 0) / 60)}m`}
+            icon={
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            }
+            hint="Per sitting"
+          />
+        </div>
+
+        <div onClick={() => navigate('/analytics')} className="cursor-pointer transition-transform hover:scale-105">
+          <StatCard
+            variant="cyan"
+            label="Completion Rate"
+            value={`${completionRate}%`}
+            icon={
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            }
+            hint="Books finished"
+          />
+        </div>
       </section>
 
 
@@ -119,7 +142,7 @@ const DashboardPage = () => {
               {data.in_progress.map((progress) => (
                 <li
                   key={progress.id}
-                  onClick={() => window.location.href = `/reader/${progress.book}`}
+                  onClick={() => navigate(`/reader/${progress.book}`)}
                   className="group cursor-pointer rounded-xl border border-slate-200 bg-slate-50 p-4 transition-all duration-300 hover:border-brand-300 hover:bg-brand-50 hover:shadow-lg dark:border-white/5 dark:bg-slate-800/50 dark:hover:bg-slate-800"
                 >
                   <div className="mb-2 flex items-start justify-between">
@@ -169,33 +192,32 @@ const DashboardPage = () => {
           )}
         </div>
 
-        {/* Bookmarked Books */}
+        {/* Liked Books (Replaces Bookmarked) */}
         <div className="card">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Bookmarked</h2>
-            <span className="badge badge-emerald">
-              {data.bookmarked_books?.length || 0} {data.bookmarked_books?.length === 1 ? 'book' : 'books'}
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Liked Books</h2>
+            <span className="badge badge-rose">
+              {data.liked_books?.length || 0} {data.liked_books?.length === 1 ? 'book' : 'books'}
             </span>
           </div>
-          {data.bookmarked_books && data.bookmarked_books.length > 0 ? (
+          {data.liked_books && data.liked_books.length > 0 ? (
             <ul className="space-y-4">
-              {data.bookmarked_books.map((book) => (
+              {data.liked_books.map((book) => (
                 <li
                   key={book.id}
-                  className="group rounded-xl border border-slate-200 bg-slate-50 p-4 transition-all duration-300 hover:border-emerald-300 hover:bg-emerald-50 dark:border-white/5 dark:bg-slate-800/50 dark:hover:bg-slate-800"
+                  onClick={() => navigate(`/books/${book.id}`)}
+                  className="group cursor-pointer rounded-xl border border-slate-200 bg-slate-50 p-4 transition-all duration-300 hover:border-rose-300 hover:bg-rose-50 dark:border-white/5 dark:bg-slate-800/50 dark:hover:bg-slate-800"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <p className="font-semibold text-slate-900 dark:text-white">{book.title}</p>
                       <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{book.author}</p>
-                      {book.location && (
-                        <p className="mt-2 text-xs text-slate-500 dark:text-slate-500">
-                          📍 {book.location}
-                        </p>
-                      )}
+                      <p className="mt-2 text-xs text-slate-500 dark:text-slate-500">
+                        Liked on {new Date(book.created_at).toLocaleDateString()}
+                      </p>
                     </div>
-                    <svg className="h-5 w-5 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    <svg className="h-5 w-5 text-rose-500" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                     </svg>
                   </div>
                 </li>
@@ -204,12 +226,12 @@ const DashboardPage = () => {
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="rounded-full bg-slate-100 p-4 dark:bg-slate-800">
-                <svg className="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                <svg className="h-8 w-8 text-slate-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                 </svg>
               </div>
-              <p className="mt-4 text-sm font-medium text-slate-600 dark:text-slate-400">No bookmarks yet</p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">Bookmark books to find them easily later</p>
+              <p className="mt-4 text-sm font-medium text-slate-600 dark:text-slate-400">No liked books</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">Like books to see them here</p>
             </div>
           )}
         </div>
@@ -227,7 +249,8 @@ const DashboardPage = () => {
               {data.completed.slice(0, 5).map((progress) => (
                 <li
                   key={progress.id}
-                  className="group rounded-xl border border-slate-200 bg-slate-50 p-4 transition-all duration-300 hover:border-violet-300 hover:bg-violet-50 dark:border-white/5 dark:bg-slate-800/50 dark:hover:bg-slate-800"
+                  onClick={() => navigate(`/books/${progress.book}`)}
+                  className="group cursor-pointer rounded-xl border border-slate-200 bg-slate-50 p-4 transition-all duration-300 hover:border-violet-300 hover:bg-violet-50 dark:border-white/5 dark:bg-slate-800/50 dark:hover:bg-slate-800"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">

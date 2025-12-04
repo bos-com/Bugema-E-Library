@@ -8,6 +8,7 @@ import CatalogPage from '../app/pages/CatalogPage';
 import BookDetailPage from '../app/pages/BookDetailPage';
 import ReaderPage from '../app/pages/ReaderPage';
 import DashboardPage from '../app/pages/DashboardPage';
+import AnalyticsPage from '../app/pages/AnalyticsPage';
 import ProfilePage from '../app/pages/ProfilePage';
 import LoginPage from '../app/pages/LoginPage';
 import RegisterPage from '../app/pages/RegisterPage';
@@ -48,6 +49,14 @@ const AppRoutes = () => (
         element={
           <ProtectedRoute>
             <ProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="analytics"
+        element={
+          <ProtectedRoute>
+            <AnalyticsPage />
           </ProtectedRoute>
         }
       />

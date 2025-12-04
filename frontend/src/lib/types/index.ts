@@ -114,6 +114,8 @@ export interface DashboardData {
     reading_goal_progress: number;
     total_likes?: number;
     total_bookmarks?: number;
+    average_session_seconds?: number;
+    daily_activity?: Array<{ date: string; minutes: number }>;
   };
 }
 

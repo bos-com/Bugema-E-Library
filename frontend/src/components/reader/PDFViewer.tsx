@@ -52,6 +52,8 @@ const PDFViewer = ({
     const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
     const [annotationType, setAnnotationType] = useState<'highlight' | 'underline'>('highlight');
 
+    const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
+
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -126,6 +128,7 @@ const PDFViewer = ({
             y: rect.top - 50
         });
         setShowHighlightMenu(true);
+        setActiveHighlightId(null); // Close any open delete menus
     };
 
     const createHighlight = (type: 'highlight' | 'underline') => {
@@ -135,11 +138,19 @@ const PDFViewer = ({
         if (!selection) return;
 
         const range = selection.getRangeAt(0);
-        const rects = Array.from(range.getClientRects()).map(rect => ({
-            x: rect.left,
-            y: rect.top,
-            width: rect.width,
-            height: rect.height,
+        const clientRects = Array.from(range.getClientRects());
+
+        // Get the page element to calculate relative coordinates
+        const pageElement = pageRefs.current.get(currentPage);
+        if (!pageElement) return;
+
+        const pageRect = pageElement.getBoundingClientRect();
+
+        const rects = clientRects.map(rect => ({
+            x: (rect.left - pageRect.left) / pageRect.width,
+            y: (rect.top - pageRect.top) / pageRect.height,
+            width: rect.width / pageRect.width,
+            height: rect.height / pageRect.height,
             pageIndex: currentPage
         }));
 
@@ -153,6 +164,13 @@ const PDFViewer = ({
         setShowHighlightMenu(false);
         selection.removeAllRanges();
         setSelectedText('');
+    };
+
+    const handleDeleteHighlight = (id: string) => {
+        if (onDeleteHighlight) {
+            onDeleteHighlight(id);
+            setActiveHighlightId(null);
+        }
     };
 
     const scrollToPage = (pageNum: number) => {
@@ -301,18 +319,61 @@ const PDFViewer = ({
                                                 const baseColor = highlight.color.replace('-underline', '');
                                                 const colorConfig = HIGHLIGHT_COLORS.find(c => c.value === baseColor);
 
+                                                // Handle legacy highlights (no rects) or new ones
+                                                const rects = highlight.position_data?.rects || [{ x: 0, y: 0, width: 1, height: 1 }];
+
                                                 return (
-                                                    <div
-                                                        key={highlight.id}
-                                                        className="absolute inset-0 pointer-events-none"
-                                                        style={isUnderline ? {
-                                                            borderBottom: `3px solid ${colorConfig?.bg.replace('0.3', '0.8') || 'rgba(255, 255, 0, 0.8)'}`,
-                                                            height: 'fit-content'
-                                                        } : {
-                                                            backgroundColor: colorConfig?.bg || 'rgba(255, 255, 0, 0.3)'
-                                                        }}
-                                                        title={highlight.text_content}
-                                                    />
+                                                    <div key={highlight.id} className="absolute inset-0 pointer-events-none">
+                                                        {rects.map((rect, i) => (
+                                                            <div
+                                                                key={i}
+                                                                className="absolute cursor-pointer pointer-events-auto hover:opacity-80 transition-opacity"
+                                                                style={isUnderline ? {
+                                                                    left: `${rect.x * 100}%`,
+                                                                    top: `${rect.y * 100}%`,
+                                                                    width: `${rect.width * 100}%`,
+                                                                    height: `${rect.height * 100}%`,
+                                                                    borderBottom: `3px solid ${colorConfig?.bg.replace('0.3', '0.8') || 'rgba(255, 255, 0, 0.8)'}`,
+                                                                } : {
+                                                                    left: `${rect.x * 100}%`,
+                                                                    top: `${rect.y * 100}%`,
+                                                                    width: `${rect.width * 100}%`,
+                                                                    height: `${rect.height * 100}%`,
+                                                                    backgroundColor: colorConfig?.bg || 'rgba(255, 255, 0, 0.3)'
+                                                                }}
+                                                                title={highlight.text_content}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveHighlightId(activeHighlightId === highlight.id ? null : highlight.id);
+                                                                }}
+                                                            />
+                                                        ))}
+
+                                                        {/* Delete Menu */}
+                                                        {activeHighlightId === highlight.id && (
+                                                            <div
+                                                                className="absolute z-50 bg-white rounded shadow-lg border border-slate-200 p-1 pointer-events-auto"
+                                                                style={{
+                                                                    left: `${rects[0].x * 100}%`,
+                                                                    top: `${(rects[0].y * 100) - 5}%`, // Position slightly above
+                                                                    transform: 'translateY(-100%)'
+                                                                }}
+                                                            >
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteHighlight(highlight.id);
+                                                                    }}
+                                                                    className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded"
+                                                                >
+                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                    </svg>
+                                                                    Remove
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 );
                                             })
                                         }

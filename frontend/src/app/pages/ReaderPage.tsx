@@ -215,15 +215,39 @@ const ReaderPage = () => {
             </div>
           )}
         </div>
-        <Link
-          to={`/catalog/${bookId}`}
-          className="btn-secondary shrink-0"
-        >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Book Details
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={async () => {
+              if (sessionId && window.confirm('Are you sure you want to mark this book as finished?')) {
+                try {
+                  await updateSessionProgress(sessionId, {
+                    percent: 100,
+                    current_page: totalPages,
+                    location: `Page ${totalPages} of ${totalPages}`
+                  });
+                  navigate('/dashboard');
+                } catch (error) {
+                  console.error('Failed to mark as finished', error);
+                }
+              }
+            }}
+            className="btn-primary bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 hover:border-emerald-700 shrink-0"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            Mark as Finished
+          </button>
+          <Link
+            to={`/catalog/${bookId}`}
+            className="btn-secondary shrink-0"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Book Details
+          </Link>
+        </div>
       </div>
 
       {/* Reader Container */}
