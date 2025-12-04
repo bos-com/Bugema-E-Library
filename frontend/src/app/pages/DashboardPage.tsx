@@ -103,8 +103,10 @@ const DashboardPage = () => {
         />
       </section>
 
+
       {/* Reading Progress Section */}
-      <section className="grid gap-6 md:grid-cols-2">
+      <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {/* In Progress Books */}
         <div className="card">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">In Progress</h2>
@@ -117,16 +119,32 @@ const DashboardPage = () => {
               {data.in_progress.map((progress) => (
                 <li
                   key={progress.id}
-                  className="group rounded-xl border border-slate-200 bg-slate-50 p-4 transition-all duration-300 hover:border-brand-300 hover:bg-brand-50 dark:border-white/5 dark:bg-slate-800/50 dark:hover:bg-slate-800"
+                  onClick={() => window.location.href = `/reader/${progress.book}`}
+                  className="group cursor-pointer rounded-xl border border-slate-200 bg-slate-50 p-4 transition-all duration-300 hover:border-brand-300 hover:bg-brand-50 hover:shadow-lg dark:border-white/5 dark:bg-slate-800/50 dark:hover:bg-slate-800"
                 >
                   <div className="mb-2 flex items-start justify-between">
                     <div className="flex-1">
                       <p className="font-semibold text-slate-900 dark:text-white">
                         {progress.book_title ?? progress.book}
                       </p>
-                      <p className="mt-1 text-xs font-medium text-brand-600 dark:text-brand-400">
-                        {Math.round(progress.percent)}% complete
-                      </p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <p className="text-xs font-medium text-brand-600 dark:text-brand-400">
+                          {Math.round(progress.percent)}% complete
+                        </p>
+                        {progress.current_page > 0 && (
+                          <>
+                            <span className="text-slate-400">•</span>
+                            <p className="text-xs text-slate-600 dark:text-slate-400">
+                              Page {progress.current_page}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                      {progress.total_time_seconds > 0 && (
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
+                          {Math.floor(progress.total_time_seconds / 60)} min read
+                        </p>
+                      )}
                     </div>
                     <svg className="h-5 w-5 text-slate-400 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -151,6 +169,7 @@ const DashboardPage = () => {
           )}
         </div>
 
+        {/* Bookmarked Books */}
         <div className="card">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white">Bookmarked</h2>
@@ -191,6 +210,60 @@ const DashboardPage = () => {
               </div>
               <p className="mt-4 text-sm font-medium text-slate-600 dark:text-slate-400">No bookmarks yet</p>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">Bookmark books to find them easily later</p>
+            </div>
+          )}
+        </div>
+
+        {/* Completed Books */}
+        <div className="card">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Completed</h2>
+            <span className="badge badge-violet">
+              {data.completed?.length || 0} {data.completed?.length === 1 ? 'book' : 'books'}
+            </span>
+          </div>
+          {data.completed && data.completed.length > 0 ? (
+            <ul className="space-y-4">
+              {data.completed.slice(0, 5).map((progress) => (
+                <li
+                  key={progress.id}
+                  className="group rounded-xl border border-slate-200 bg-slate-50 p-4 transition-all duration-300 hover:border-violet-300 hover:bg-violet-50 dark:border-white/5 dark:bg-slate-800/50 dark:hover:bg-slate-800"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="font-semibold text-slate-900 dark:text-white">
+                        {progress.book_title ?? progress.book}
+                      </p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <svg className="h-4 w-4 text-emerald-500" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                          Completed
+                        </p>
+                      </div>
+                      {progress.total_time_seconds > 0 && (
+                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
+                          Total time: {Math.floor(progress.total_time_seconds / 3600)}h {Math.floor((progress.total_time_seconds % 3600) / 60)}m
+                        </p>
+                      )}
+                    </div>
+                    <svg className="h-5 w-5 text-violet-500" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="rounded-full bg-slate-100 p-4 dark:bg-slate-800">
+                <svg className="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="mt-4 text-sm font-medium text-slate-600 dark:text-slate-400">No completed books</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">Finish a book to see it here</p>
             </div>
           )}
         </div>

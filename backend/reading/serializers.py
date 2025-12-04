@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ReadingProgress, ReadingSession
+from .models import ReadingProgress, ReadingSession, Highlight
 
 
 class ReadingProgressSerializer(serializers.ModelSerializer):
@@ -12,7 +12,7 @@ class ReadingProgressSerializer(serializers.ModelSerializer):
         model = ReadingProgress
         fields = [
             'id', 'book', 'book_title', 'book_author', 'book_cover',
-            'last_location', 'percent', 'total_time_seconds',
+            'last_location', 'current_page', 'percent', 'total_time_seconds',
             'last_opened_at', 'completed', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -56,3 +56,37 @@ class ReadingStatsSerializer(serializers.Serializer):
     longest_streak_days = serializers.IntegerField()
     favorite_category = serializers.CharField()
     reading_goal_progress = serializers.FloatField()
+
+
+class HighlightSerializer(serializers.ModelSerializer):
+    """Highlight and annotation serializer"""
+    
+    class Meta:
+        model = Highlight
+        fields = [
+            'id', 'book', 'page_number', 'text_content', 'color',
+            'position_data', 'note', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def validate_color(self, value):
+        """Validate highlight color"""
+        allowed_colors = ['yellow', 'green', 'blue', 'pink', 'purple', 'orange']
+        
+        # Check if it's an underline (has -underline suffix)
+        color_to_check = value.lower()
+        if color_to_check.endswith('-underline'):
+            color_to_check = color_to_check.replace('-underline', '')
+        
+        if color_to_check not in allowed_colors:
+            raise serializers.ValidationError(
+                f"Color must be one of: {', '.join(allowed_colors)} (optionally with '-underline' suffix)"
+            )
+        return value.lower()
+    
+    def validate_page_number(self, value):
+        """Validate page number is positive"""
+        if value < 1:
+            raise serializers.ValidationError("Page number must be at least 1")
+        return value
+

@@ -7,8 +7,8 @@ from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta
 from django.db.models import Sum, Q # For advanced querying and lookups
 
-from .models import ReadingProgress, ReadingSession
-from .serializers import ReadingProgressSerializer, ReadingSessionSerializer
+from .models import ReadingProgress, ReadingSession, Highlight
+from .serializers import ReadingProgressSerializer, ReadingSessionSerializer, HighlightSerializer
 # Assuming ReadingStatsSerializer is also available, though not used directly in views.
 # from .serializers import ReadingStatsSerializer 
 from catalog.models import Book, BookLike, Bookmark
@@ -61,31 +61,26 @@ class ReadingProgressView(generics.RetrieveUpdateAPIView):
         
         # Update progress data
         last_location = request.data.get('location', progress.last_location)
+        current_page = request.data.get('current_page', progress.current_page)
         percent = request.data.get('percent', progress.percent)
         time_spent = request.data.get('time_spent', 0)
         
+        # Calculate percent from page if book has pages and current_page is provided
+        if 'current_page' in request.data and progress.book.pages:
+            total_pages = progress.book.pages
+            if total_pages > 0:
+                percent = (float(current_page) / float(total_pages)) * 100
+        
         progress.last_location = last_location
+        progress.current_page = int(current_page)
         # Ensure conversion before assignment
         progress.percent = float(percent)
         progress.total_time_seconds += int(time_spent)
         progress.last_opened_at = timezone.now()
-        progress.completed = progress.percent >= 100
+        # Auto-complete at 95% or higher
+        progress.completed = progress.percent >= 95.0
         progress.updated_at = timezone.now()
         progress.save()
-        
-        # --- FIX: REMOVED ANALYTICS LOGGING ---
-        # The following block was removed because EventLog is causing the import error
-        # and must be re-implemented using Django ORM if required.
-        # EventLog.objects.create(
-        #     event_type='READ_PROGRESS',
-        #     payload={
-        #         'book_id': str(progress.book.id),
-        #         'location': last_location,
-        #         'percent': progress.percent,
-        #         'time_spent': time_spent
-        #     },
-        #     user=str(request.user.id)
-        # )
         
         serializer = self.get_serializer(progress)
         return Response(serializer.data)
@@ -319,3 +314,139 @@ def end_reading_session(request, session_id):
     session.save()
     
     return Response(ReadingSessionSerializer(session).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_or_create_active_session(request, book_id):
+    """Get active session or create a new one for a book"""
+    book = get_object_or_404(Book, pk=book_id, is_published=True)
+    
+    # Check for existing active session
+    active_session = ReadingSession.objects.filter(
+        user=request.user,
+        book=book,
+        ended_at__isnull=True
+    ).first()
+    
+    if active_session:
+        return Response(ReadingSessionSerializer(active_session).data)
+    
+    # Create new session
+    session = ReadingSession.objects.create(
+        user=request.user,
+        book=book,
+        started_at=timezone.now()
+    )
+    
+    return Response(ReadingSessionSerializer(session).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def update_session_progress(request, session_id):
+    """Update reading session with current progress"""
+    try:
+        session = ReadingSession.objects.get(
+            pk=session_id,
+            user=request.user,
+            ended_at__isnull=True
+        )
+    except ReadingSession.DoesNotExist:
+        return Response({'error': 'Active session not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Update session duration
+    current_duration = int((timezone.now() - session.started_at).total_seconds())
+    session.duration_seconds = current_duration
+    session.save()
+    
+    # Also update reading progress if data provided
+    current_page = request.data.get('current_page')
+    percent = request.data.get('percent')
+    location = request.data.get('location')
+    
+    if current_page is not None or percent is not None:
+        progress, created = ReadingProgress.objects.get_or_create(
+            user=request.user,
+            book=session.book,
+            defaults={
+                'last_location': location or '0',
+                'current_page': current_page or 0,
+                'percent': percent or 0.0,
+                'total_time_seconds': 0
+            }
+        )
+        
+        if not created:
+            if location:
+                progress.last_location = location
+            if current_page is not None:
+                progress.current_page = int(current_page)
+                # Calculate percent from page if book has pages
+                if session.book.pages and session.book.pages > 0:
+                    progress.percent = (float(current_page) / float(session.book.pages)) * 100
+            elif percent is not None:
+                progress.percent = float(percent)
+            
+            progress.last_opened_at = timezone.now()
+            progress.completed = progress.percent >= 95.0
+            progress.save()
+    
+    return Response(ReadingSessionSerializer(session).data)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def book_highlights(request, book_id):
+    """Get all highlights for a book or create a new highlight"""
+    book = get_object_or_404(Book, pk=book_id, is_published=True)
+    
+    if request.method == 'GET':
+        # Get all highlights for this book by this user
+        highlights = Highlight.objects.filter(
+            user=request.user,
+            book=book
+        ).order_by('page_number', 'created_at')
+        
+        serializer = HighlightSerializer(highlights, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        # Create a new highlight
+        data = request.data.copy()
+        data['book'] = book.id
+        
+        serializer = HighlightSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def highlight_detail(request, highlight_id):
+    """Update or delete a specific highlight"""
+    try:
+        highlight = Highlight.objects.get(
+            pk=highlight_id,
+            user=request.user
+        )
+    except Highlight.DoesNotExist:
+        return Response(
+            {'error': 'Highlight not found or you do not have permission to access it'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    if request.method == 'PATCH':
+        # Update highlight (note or color)
+        serializer = HighlightSerializer(highlight, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        # Delete highlight
+        highlight.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

@@ -1,10 +1,23 @@
-import { useQuery } from '@tanstack/react-query';
-import { useParams, Link } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { getBookDetail, streamBookContent } from '../../lib/api/catalog';
+import { getOrCreateSession, updateSessionProgress, endSession } from '../../lib/api/reading';
+import { getHighlights, createHighlight, deleteHighlight } from '../../lib/api/highlights';
 import LoadingOverlay from '../../components/feedback/LoadingOverlay';
+import PDFViewer from '../../components/reader/PDFViewer';
+import type { Highlight } from '../../lib/types';
 
 const ReaderPage = () => {
   const { bookId } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isSessionActive, setIsSessionActive] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const sessionStartTime = useRef<number>(Date.now());
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: book, isLoading: bookLoading } = useQuery({
     queryKey: ['book', bookId],
@@ -16,9 +29,117 @@ const ReaderPage = () => {
     queryKey: ['book-stream', bookId],
     queryFn: () => streamBookContent(bookId!),
     enabled: Boolean(bookId),
-    staleTime: Infinity, // Keep the URL valid for the session
+    staleTime: Infinity,
     retry: 2,
   });
+
+  // Fetch highlights for this book
+  const { data: highlights = [] } = useQuery({
+    queryKey: ['highlights', bookId],
+    queryFn: () => getHighlights(bookId!),
+    enabled: Boolean(bookId),
+  });
+
+  // Mutation for creating highlights
+  const createHighlightMutation = useMutation({
+    mutationFn: (highlight: Omit<Highlight, 'id' | 'book' | 'created_at' | 'updated_at'>) =>
+      createHighlight(bookId!, highlight),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['highlights', bookId] });
+    },
+  });
+
+  // Mutation for deleting highlights
+  const deleteHighlightMutation = useMutation({
+    mutationFn: (highlightId: string) => deleteHighlight(highlightId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['highlights', bookId] });
+    },
+  });
+
+  // Mutation for ending session
+  const endSessionMutation = useMutation({
+    mutationFn: (sessionId: string) => endSession(sessionId),
+  });
+
+  // Start reading session when component mounts
+  useEffect(() => {
+    if (!bookId) return;
+
+    const startSession = async () => {
+      try {
+        const session = await getOrCreateSession(bookId);
+        setSessionId(session.id);
+        setIsSessionActive(true);
+        sessionStartTime.current = Date.now();
+
+        // If we have previous progress, set current page
+        // Note: You might want to fetch the last progress location here
+      } catch (error) {
+        console.error('Failed to start reading session:', error);
+      }
+    };
+
+    startSession();
+
+    // Cleanup: end session when component unmounts
+    return () => {
+      if (sessionId) {
+        endSessionMutation.mutate(sessionId);
+        setIsSessionActive(false);
+      }
+    };
+  }, [bookId]);
+
+  // Handle page changes and update progress
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+
+    if (!sessionId || !isSessionActive) return;
+
+    // Debounce updates to avoid too many API calls - reduced to 500ms for better tracking
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+
+    updateTimeoutRef.current = setTimeout(async () => {
+      try {
+        const percent = totalPages > 0 ? (page / totalPages) * 100 : 0;
+        await updateSessionProgress(sessionId, {
+          current_page: page,
+          percent: Math.min(percent, 100),
+          location: `Page ${page} of ${totalPages}`,
+        });
+      } catch (error) {
+        console.error('Failed to update progress:', error);
+      }
+    }, 500); // Reduced from 1000ms to 500ms
+  }, [sessionId, isSessionActive, totalPages]);
+
+  // Periodic progress updates every 30 seconds while reading
+  useEffect(() => {
+    if (!sessionId || !isSessionActive || totalPages === 0) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const percent = totalPages > 0 ? (currentPage / totalPages) * 100 : 0;
+        await updateSessionProgress(sessionId, {
+          current_page: currentPage,
+          percent: Math.min(percent, 100),
+          location: `Page ${currentPage} of ${totalPages}`,
+        });
+      } catch (error) {
+        console.error('Failed to update periodic progress:', error);
+      }
+    }, 30000); // Every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [sessionId, isSessionActive, currentPage, totalPages]);
+
+  // Handle document load success
+  const handleLoadSuccess = useCallback((numPages: number) => {
+    setTotalPages(numPages);
+  }, []);
 
   if (isLoading || bookLoading) {
     return <LoadingOverlay label="Preparing secure reader" />;
@@ -77,6 +198,22 @@ const ReaderPage = () => {
           </p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">{book?.title}</h1>
           <p className="mt-2 text-base text-slate-600 dark:text-slate-400">{book?.author}</p>
+
+          {/* Session Status Indicator */}
+          {isSessionActive && (
+            <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+              </span>
+              Reading session active
+              {totalPages > 0 && (
+                <span className="ml-1 text-emerald-600 dark:text-emerald-500">
+                  • Page {currentPage} of {totalPages}
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <Link
           to={`/catalog/${bookId}`}
@@ -90,18 +227,18 @@ const ReaderPage = () => {
       </div>
 
       {/* Reader Container */}
-      <div className="overflow-hidden rounded-2xl border-2 border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-black">
-        {/* Use object URL for iframe source */}
-        {/* #view=FitH forces the PDF to fit the width of the container */}
-        <iframe
-          title="reader"
-          src={`${fileUrl}#view=FitH`}
-          className="h-[88vh] w-full"
-        />
-      </div>
+      <PDFViewer
+        fileUrl={fileUrl}
+        initialPage={currentPage}
+        onPageChange={handlePageChange}
+        onLoadSuccess={handleLoadSuccess}
+        highlights={highlights}
+        onCreateHighlight={(highlight) => createHighlightMutation.mutate(highlight)}
+        onDeleteHighlight={(highlightId) => deleteHighlightMutation.mutate(highlightId)}
+        userEmail={book?.author || 'user@bugema.com'}
+      />
     </div>
   );
 };
 
 export default ReaderPage;
-

@@ -69,9 +69,21 @@ export interface ReadingProgress {
   book_cover?: string | null;
   percent: number;
   last_location: string;
+  current_page: number;
   total_time_seconds: number;
   completed: boolean;
   updated_at: string;
+}
+
+export interface ReadingSession {
+  id: string;
+  book: number;
+  book_title?: string;
+  book_author?: string;
+  started_at: string;
+  ended_at?: string | null;
+  duration_seconds: number;
+  created_at: string;
 }
 
 export interface DashboardData {
@@ -125,3 +137,24 @@ export interface AdminOverview {
   reads_per_hour: Array<{ hour: number; count: number }>;
   top_search_terms: Array<{ term: string; count: number }>;
 }
+
+export interface Highlight {
+  id: string;
+  book: number;
+  page_number: number;
+  text_content: string;
+  color: string;
+  position_data: {
+    rects: Array<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      pageIndex?: number;
+    }>;
+  };
+  note?: string;
+  created_at: string;
+  updated_at: string;
+}
+

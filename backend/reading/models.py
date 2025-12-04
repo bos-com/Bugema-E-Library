@@ -43,6 +43,11 @@ class ReadingProgress(models.Model):
         help_text="Page number, chapter title, or CFI (for EPUB)."
     )
     
+    current_page = models.IntegerField(
+        default=0,
+        help_text="Current page number (0-based for tracking)."
+    )
+    
     # FloatField equivalent with validators for 0% to 100%.
     percent = models.FloatField(
         validators=[MinValueValidator(0), MaxValueValidator(100)],
@@ -128,3 +133,70 @@ class ReadingSession(models.Model):
     def __str__(self):
         book_title = self.book.title if hasattr(self.book, 'title') else "N/A"
         return f"Session: {self.user} -> {book_title} ({self.duration_seconds}s)"
+
+
+class Highlight(models.Model):
+    """
+    Highlight and annotation tracking model.
+    Stores user highlights from books with position, color, and optional notes.
+    """
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        help_text="Unique ID for this highlight."
+    )
+    
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='highlights',
+        help_text="The user who created this highlight."
+    )
+    
+    book = models.ForeignKey(
+        'catalog.Book',
+        on_delete=models.CASCADE,
+        related_name='highlights',
+        help_text="The book containing this highlight."
+    )
+    
+    page_number = models.IntegerField(
+        help_text="Page number where the highlight is located."
+    )
+    
+    text_content = models.TextField(
+        help_text="The highlighted text content."
+    )
+    
+    color = models.CharField(
+        max_length=20,
+        default='yellow',
+        help_text="Highlight color (yellow, green, blue, pink, etc.)."
+    )
+    
+    position_data = models.JSONField(
+        help_text="JSON data containing position rectangles and coordinates."
+    )
+    
+    note = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Optional user note/annotation for this highlight."
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name_plural = "Highlights"
+        ordering = ['page_number', 'created_at']
+        indexes = [
+            models.Index(fields=['user', 'book']),
+            models.Index(fields=['book', 'page_number']),
+        ]
+    
+    def __str__(self):
+        book_title = self.book.title if hasattr(self.book, 'title') else "N/A"
+        preview = self.text_content[:50] + "..." if len(self.text_content) > 50 else self.text_content
+        return f"Highlight: {self.user} -> {book_title} (p{self.page_number}): {preview}"
