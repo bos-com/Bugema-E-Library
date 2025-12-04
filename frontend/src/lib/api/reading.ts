@@ -11,6 +11,7 @@ export const getProgress = async (bookId: number | string) => {
   return data;
 };
 
+
 export const updateProgress = async (
   bookId: number | string,
   payload: Partial<Pick<ReadingProgress, 'last_location' | 'percent' | 'current_page'>> & { time_spent?: number }
