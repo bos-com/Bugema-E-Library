@@ -65,14 +65,14 @@ const AdminUsersPage = () => {
     return (
         <div className="space-y-6">
             <div>
-                <p className="text-xs uppercase tracking-[0.4em] text-brand-200">Admin</p>
-                <h1 className="mt-2 text-3xl font-semibold text-white">User Management</h1>
+                <p className="text-xs uppercase tracking-[0.4em] text-brand-500 dark:text-brand-300">Admin</p>
+                <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">User Management</h1>
             </div>
 
             <div className="card overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-slate-400">
-                        <thead className="bg-slate-900/50 text-xs uppercase text-slate-500">
+                    <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
+                        <thead className="bg-slate-100 text-xs uppercase text-slate-600 dark:bg-slate-900/50 dark:text-slate-400">
                             <tr>
                                 <th className="px-6 py-3">User</th>
                                 <th className="px-6 py-3">Status</th>
@@ -81,16 +81,16 @@ const AdminUsersPage = () => {
                                 <th className="px-6 py-3 text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="divide-y divide-slate-200 dark:divide-white/5">
                             {users.map((user) => (
-                                <tr key={user.id} className="hover:bg-white/5">
+                                <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-white/5">
                                     <td className="px-6 py-4">
                                         <div className="flex items-center">
                                             <div className="h-10 w-10 flex-shrink-0 rounded-full bg-brand-500/20 flex items-center justify-center text-brand-400 font-bold">
                                                 {user.name.charAt(0).toUpperCase()}
                                             </div>
                                             <div className="ml-4">
-                                                <div className="font-medium text-white">{user.name}</div>
+                                                <div className="font-bold text-slate-900 dark:text-white">{user.name}</div>
                                                 <div className="text-slate-500">{user.email}</div>
                                             </div>
                                         </div>

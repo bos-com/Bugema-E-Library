@@ -1,13 +1,14 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../../lib/store/auth';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, LayoutDashboard, Users, BookOpen, FolderTree } from 'lucide-react';
 import { useState } from 'react';
+import bugemaLogo from '../../../bugema.webp';
 
 const adminLinks = [
-  { label: 'Overview', to: '/admin/overview' },
-  { label: 'Users', to: '/admin/users' },
-  { label: 'Books', to: '/admin/books' },
-  { label: 'Categories', to: '/admin/categories' },
+  { label: 'Overview', to: '/admin/overview', icon: LayoutDashboard },
+  { label: 'Users', to: '/admin/users', icon: Users },
+  { label: 'Books', to: '/admin/books', icon: BookOpen },
+  { label: 'Categories', to: '/admin/categories', icon: FolderTree },
 ];
 
 const AdminLayout = () => {
@@ -29,12 +30,13 @@ const AdminLayout = () => {
               key={link.to}
               to={link.to}
               className={({ isActive }) =>
-                `block rounded-lg px-4 py-2 font-medium transition ${isActive
-                  ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/20 dark:text-white'
-                  : 'hover:bg-slate-100 dark:hover:bg-white/5'
+                `flex items-center gap-3 rounded-lg px-4 py-3 font-bold transition ${isActive
+                  ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-white'
+                  : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5'
                 }`
               }
             >
+              <link.icon className="h-5 w-5" />
               {link.label}
             </NavLink>
           ))}
@@ -98,12 +100,13 @@ const AdminLayout = () => {
                   to={link.to}
                   onClick={() => setMobileMenuOpen(false)}
                   className={({ isActive }) =>
-                    `block rounded-lg px-4 py-2 text-sm font-medium transition ${isActive
-                      ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/20 dark:text-white'
+                    `flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold transition ${isActive
+                      ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/20 dark:text-white'
                       : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5'
                     }`
                   }
                 >
+                  <link.icon className="h-5 w-5" />
                   {link.label}
                 </NavLink>
               ))}
