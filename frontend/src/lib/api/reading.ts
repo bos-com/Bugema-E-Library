@@ -1,5 +1,5 @@
 import api from './client';
-import type { DashboardData, ReadingProgress, ReadingSession } from '../types';
+import type { DashboardData, ReadingProgress, ReadingSession, AnalyticsData } from '../types';
 
 export const getDashboard = async () => {
   const response = await api.get<DashboardData>('/reading/dashboard/');
@@ -7,7 +7,7 @@ export const getDashboard = async () => {
 };
 
 export const getUserAnalytics = async (period: 'week' | 'month' = 'week') => {
-  const { data } = await api.get('/reading/analytics/', {
+  const { data } = await api.get<AnalyticsData>('/reading/analytics/', {
     params: { period }
   });
   return data;

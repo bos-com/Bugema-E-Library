@@ -117,6 +117,30 @@ export interface DashboardData {
     total_bookmarks?: number;
     average_session_seconds?: number;
     daily_activity?: Array<{ date: string; minutes: number }>;
+    streak_history?: Array<{ date: string; read: boolean }>;
+  };
+}
+
+export interface AnalyticsData {
+  hourly_distribution: Array<{ hour: number; minutes: number }>;
+  daily_distribution: Array<{
+    date: string;
+    day_name: string;
+    full_day_name: string;
+    minutes: number;
+  }>;
+  weekly_distribution: Array<{
+    date: string;
+    day_name: string;
+    full_day_name: string;
+    minutes: number;
+  }>;
+  streak_history: Array<{ date: string; read: boolean }>;
+  completion_stats: {
+    rate: number;
+    total: number;
+    completed: number;
+    by_category: Array<{ name: string; value: number }>;
   };
 }
 

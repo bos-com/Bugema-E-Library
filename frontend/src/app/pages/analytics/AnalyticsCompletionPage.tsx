@@ -10,7 +10,7 @@ const AnalyticsCompletionPage = () => {
     const navigate = useNavigate();
     const { data, isLoading } = useQuery({
         queryKey: ['analytics'],
-        queryFn: getUserAnalytics,
+        queryFn: () => getUserAnalytics(),
         staleTime: 5 * 60 * 1000,
     });
 
