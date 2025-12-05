@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { getUserAnalytics } from '../../../lib/api/reading';
+import { AnalyticsData } from '../../../lib/types';
 import LoadingOverlay from '../../../components/feedback/LoadingOverlay';
 
 type TimeRange = 'week' | 'month';
@@ -17,9 +18,9 @@ const AnalyticsTimePage = () => {
     const navigate = useNavigate();
     const [timeRange, setTimeRange] = useState<TimeRange>('week');
 
-    const { data, isLoading } = useQuery({
-        queryKey: ['analytics'],
-        queryFn: getUserAnalytics,
+    const { data, isLoading } = useQuery<AnalyticsData>({
+        queryKey: ['analytics', timeRange],
+        queryFn: () => getUserAnalytics(timeRange),
         staleTime: 5 * 60 * 1000, // 5 minutes cache
     });
 
@@ -28,32 +29,22 @@ const AnalyticsTimePage = () => {
     }
 
     const hourlyData = data?.hourly_distribution || [];
-    const weeklyData = data?.weekly_distribution || [];
+    const dailyData = data?.daily_distribution || [];
 
-    // Format weekly data for Bar Chart with different colors
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const barChartData = weeklyData.map((d: { day: number; minutes: number }, index: number) => ({
-        day: days[d.day],
+    // Format data for Bar Chart
+    const barChartData = dailyData.map((d: any, index: number) => ({
+        day: timeRange === 'week' ? d.day_name : d.date.split('-')[2], // Mon or 01
         minutes: d.minutes,
-        fullDay: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.day],
+        fullDay: d.full_day_name || d.date,
         color: BAR_COLORS[index % BAR_COLORS.length]
     }));
 
     // Calculate totals for summary cards
-    const totalMinutesWeek = weeklyData.reduce((sum: number, d: any) => sum + (d.minutes || 0), 0);
-    const totalMinutesMonth = totalMinutesWeek * 4; // Approximate monthly
-    const avgDailyMinutes = Math.round(totalMinutesWeek / 7);
+    const totalMinutes = dailyData.reduce((sum: number, d: any) => sum + (d.minutes || 0), 0);
+    const avgDailyMinutes = dailyData.length > 0 ? Math.round(totalMinutes / dailyData.length) : 0;
     const peakHour = hourlyData.reduce((max: any, h: any) => h.minutes > (max?.minutes || 0) ? h : max, hourlyData[0]);
 
-    // Get data based on selected time range
-    const displayData = timeRange === 'week' ? barChartData : barChartData.map((d: any) => ({
-        ...d,
-        minutes: Math.round(d.minutes * 4) // Approximate monthly
-    }));
-
-    const totalHours = timeRange === 'week'
-        ? Math.round(totalMinutesWeek / 60 * 10) / 10
-        : Math.round(totalMinutesMonth / 60 * 10) / 10;
+    const totalHours = Math.round(totalMinutes / 60 * 10) / 10;
 
     return (
         <div className="space-y-8 animate-in">
@@ -110,7 +101,7 @@ const AnalyticsTimePage = () => {
                 </div>
                 <div className="card bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/20">
                     <p className="text-xs font-medium text-rose-600 dark:text-rose-400 uppercase tracking-wide">Total Minutes</p>
-                    <p className="text-3xl font-bold text-rose-900 dark:text-rose-100 mt-1">{timeRange === 'week' ? totalMinutesWeek : totalMinutesMonth}</p>
+                    <p className="text-3xl font-bold text-rose-900 dark:text-rose-100 mt-1">{totalMinutes}</p>
                     <p className="text-sm text-rose-600 dark:text-rose-400 mt-1">This {timeRange}</p>
                 </div>
             </div>
@@ -146,11 +137,11 @@ const AnalyticsTimePage = () => {
                         {timeRange === 'week' ? 'Weekly' : 'Monthly'} Reading Pattern
                     </h3>
                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-                        Minutes spent reading each day of the week
+                        Minutes spent reading each day
                     </p>
                     <div className="h-[300px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={displayData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                            <BarChart data={barChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
                                 <XAxis
                                     dataKey="day"
@@ -169,7 +160,7 @@ const AnalyticsTimePage = () => {
                                     labelFormatter={(label, payload) => payload[0]?.payload?.fullDay || label}
                                 />
                                 <Bar dataKey="minutes" radius={[6, 6, 0, 0]}>
-                                    {displayData.map((entry: any, index: number) => (
+                                    {barChartData.map((entry: any, index: number) => (
                                         <Cell key={`cell-${index}`} fill={BAR_COLORS[index % BAR_COLORS.length]} />
                                     ))}
                                 </Bar>

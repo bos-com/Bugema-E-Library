@@ -23,11 +23,12 @@ const AdminOverviewPage = () => {
   const [searchPeriod, setSearchPeriod] = useState<TimePeriod>('month');
   const [likedPeriod, setLikedPeriod] = useState<TimePeriod>('month');
   const [readsPeriod, setReadsPeriod] = useState<TimePeriod>('month');
+  const [viewedPeriod, setViewedPeriod] = useState<TimePeriod>('month');
 
   // Use period for filtering
   const { data, isPending, refetch } = useQuery({
-    queryKey: ['admin-overview', searchPeriod],
-    queryFn: () => getAdminOverview(searchPeriod),
+    queryKey: ['admin-overview', readsPeriod, likedPeriod, searchPeriod, viewedPeriod],
+    queryFn: () => getAdminOverview(readsPeriod, likedPeriod, searchPeriod, viewedPeriod),
     staleTime: 2 * 60 * 1000,
   });
 
@@ -105,10 +106,12 @@ const AdminOverviewPage = () => {
           <div className="mb-6 flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">Reading Activity</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400">Daily reads over the last 30 days</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                {readsPeriod === 'today' ? 'Hourly reads today' : `Daily reads over the last ${readsPeriod}`}
+              </p>
             </div>
             <div className="rounded-xl bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
-              30 days
+              {periodLabels[readsPeriod]}
             </div>
           </div>
           <div className="h-64">
@@ -239,9 +242,20 @@ const AdminOverviewPage = () => {
 
       {/* Lists Grid - 3 columns */}
       <div className="grid gap-6 md:grid-cols-3">
-        {/* Most Read Books */}
+        {/* Most Viewed Books */}
         <div className="card">
-          <h3 className="mb-4 text-xl font-bold text-slate-900 dark:text-white">Most Read Books</h3>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Most Viewed Books</h3>
+            <select
+              value={viewedPeriod}
+              onChange={(e) => setViewedPeriod(e.target.value as TimePeriod)}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 dark:border-white/10 dark:bg-slate-800 dark:text-white"
+            >
+              <option value="today">Today</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+            </select>
+          </div>
           <ul className="space-y-3">
             {data.most_read_books?.slice(0, 6).map((book: any, index: number) => (
               <li
@@ -280,7 +294,7 @@ const AdminOverviewPage = () => {
             </select>
           </div>
           <ul className="space-y-3">
-            {(data.most_liked_books && data.most_liked_books.length > 0 ? data.most_liked_books : data.most_read_books)?.slice(0, 6).map((book: any, index: number) => (
+            {(data.most_liked_books?.length > 0 ? data.most_liked_books : []).slice(0, 6).map((book: any, index: number) => (
               <li
                 key={book.id}
                 className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 transition-colors hover:bg-slate-100 dark:border-white/5 dark:bg-slate-800/50 dark:hover:bg-slate-800"

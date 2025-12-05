@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { getDashboard } from '../../../lib/api/reading';
+import { DashboardData } from '../../../lib/types';
 import LoadingOverlay from '../../../components/feedback/LoadingOverlay';
 
 const AnalyticsStreakPage = () => {
@@ -9,7 +10,7 @@ const AnalyticsStreakPage = () => {
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-    const { data: dashboardData, isLoading } = useQuery({
+    const { data: dashboardData, isLoading } = useQuery<DashboardData>({
         queryKey: ['dashboard'],
         queryFn: getDashboard,
         staleTime: 2 * 60 * 1000,
@@ -63,9 +64,8 @@ const AnalyticsStreakPage = () => {
 
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-    // Generate year options (current year and previous years)
-    const currentYear = new Date().getFullYear();
-    const yearOptions = [currentYear, currentYear - 1, currentYear - 2];
+    // Generate year options (2025-2030)
+    const yearOptions = [2025, 2026, 2027, 2028, 2029, 2030];
 
     return (
         <div className="space-y-8 animate-in">

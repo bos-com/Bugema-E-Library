@@ -121,14 +121,37 @@ export interface DashboardData {
   };
 }
 
+export interface AnalyticsData {
+  hourly_distribution: Array<{ hour: number; minutes: number }>;
+  daily_distribution: Array<{
+    date: string;
+    day_name: string;
+    full_day_name: string;
+    minutes: number;
+  }>;
+  weekly_distribution: Array<{
+    date: string;
+    day_name: string;
+    full_day_name: string;
+    minutes: number;
+  }>;
+  streak_history: Array<{ date: string; read: boolean }>;
+  completion_stats: {
+    rate: number;
+    total: number;
+    completed: number;
+    by_category: Array<{ name: string; value: number }>;
+  };
+}
+
 export interface AdminOverview {
   overview: {
     total_books: number;
     total_categories: number;
     total_users: number;
     total_reads: number;
-    active_users_7d: number;
     total_reads_period?: number;
+    active_users_7d: number;
   };
   most_read_books: Array<{
     id: string;
@@ -137,11 +160,10 @@ export interface AdminOverview {
     view_count: number;
     like_count: number;
   }>;
-  most_liked_books?: Array<{
+  most_liked_books: Array<{
     id: string;
     title: string;
     author: string;
-    view_count: number;
     like_count: number;
   }>;
   most_liked_categories: Array<{ name: string; likes: number }>;
