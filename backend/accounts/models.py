@@ -82,3 +82,46 @@ class User(AbstractBaseUser, PermissionsMixin):
         indexes = [
             models.Index(fields=['email']),
         ]
+
+
+class PasswordResetToken(models.Model):
+    """Password reset token for forgot password flow"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reset_tokens')
+    token = models.CharField(max_length=6)  # 6-digit code
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'password_reset_tokens'
+        ordering = ['-created_at']
+
+    def is_valid(self):
+        """Check if token is still valid (not expired and not used)"""
+        from django.utils import timezone
+        return not self.is_used and self.expires_at > timezone.now()
+
+    @classmethod
+    def create_for_user(cls, user):
+        """Create a new reset token for a user"""
+        import random
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        # Invalidate any existing tokens
+        cls.objects.filter(user=user, is_used=False).update(is_used=True)
+        
+        # Generate 6-digit code
+        token = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+        
+        # Set expiry to 2 minutes from now
+        expires_at = timezone.now() + timedelta(minutes=2)
+        
+        return cls.objects.create(
+            user=user,
+            token=token,
+            expires_at=expires_at
+        )
+
+    def __str__(self):
+        return f"Reset token for {self.user.email}"

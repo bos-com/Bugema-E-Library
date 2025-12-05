@@ -5,7 +5,8 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta
-from django.db.models import Sum, Avg, Q # For advanced querying and lookups
+from django.db.models import Sum, Avg, Q, Count, F
+from django.db.models.functions import ExtractHour, ExtractWeekDay
 
 from .models import ReadingProgress, ReadingSession, Highlight
 from .serializers import ReadingProgressSerializer, ReadingSessionSerializer, HighlightSerializer
@@ -224,9 +225,46 @@ def user_dashboard(request):
             })
         daily_activity.reverse() # Show oldest to newest
         
+        # Calculate total time this week
+        week_start = today - timedelta(days=today.weekday())  # Monday
+        week_sessions = ReadingSession.objects.filter(
+            user=user,
+            started_at__date__gte=week_start,
+            ended_at__isnull=False
+        ).aggregate(total_time=Sum('duration_seconds'))
+        total_time_this_week_seconds = week_sessions['total_time'] or 0
+        
+        # Calculate streak history for last 30 days (for calendar display)
+        streak_history = []
+        for i in range(30):
+            date = today - timedelta(days=29-i)  # Start from 30 days ago
+            has_reading = ReadingSession.objects.filter(
+                user=user,
+                started_at__date=date
+            ).exists()
+            streak_history.append({
+                'date': date.strftime('%Y-%m-%d'),
+                'read': has_reading
+            })
+        
+        # Calculate longest streak properly
+        longest_streak = 0
+        if sessions:
+            session_dates_sorted = sorted(list(set(s.started_at.date() for s in sessions)))
+            streak = 0
+            previous_date = None
+            for date in session_dates_sorted:
+                if previous_date and (date - previous_date).days == 1:
+                    streak += 1
+                else:
+                    streak = 1
+                longest_streak = max(longest_streak, streak)
+                previous_date = date
+        
         stats = {
             'total_books_read': total_books_read,
             'total_time_seconds': total_time_seconds,
+            'total_time_this_week_seconds': total_time_this_week_seconds,
             'total_pages_read': total_pages_read,
             'current_streak_days': current_streak_days,
             'longest_streak_days': longest_streak,
@@ -236,6 +274,7 @@ def user_dashboard(request):
             'total_bookmarks': total_bookmarks,
             'average_session_seconds': average_session_seconds,
             'daily_activity': daily_activity,
+            'streak_history': streak_history,
         }
         
         # Mapping logic for response data remains the same
@@ -483,3 +522,101 @@ def highlight_detail(request, highlight_id):
         # Delete highlight
         highlight.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_analytics(request):
+    user = request.user
+    today = timezone.now().date()
+    
+    # 1. Hourly Distribution (0-23)
+    hourly_stats = ReadingSession.objects.filter(
+        user=user,
+        started_at__isnull=False
+    ).annotate(
+        hour=ExtractHour('started_at')
+    ).values('hour').annotate(
+        count=Count('id'),
+        total_minutes=Sum('duration_seconds') / 60
+    ).order_by('hour')
+    
+    hourly_data = [{'hour': i, 'minutes': 0} for i in range(24)]
+    for stat in hourly_stats:
+        if stat['hour'] is not None:
+            hourly_data[stat['hour']]['minutes'] = round(stat['total_minutes'] or 0)
+
+    # 2. Weekly Distribution (0=Sunday, 6=Saturday in Django ExtractWeekDay usually 1=Sunday, 7=Saturday, let's verify)
+    # Django ExtractWeekDay: 1 is Sunday, 7 is Saturday.
+    weekly_stats = ReadingSession.objects.filter(
+        user=user,
+        started_at__isnull=False
+    ).annotate(
+        weekday=ExtractWeekDay('started_at')
+    ).values('weekday').annotate(
+        total_minutes=Sum('duration_seconds') / 60
+    ).order_by('weekday')
+    
+    # Map 1-7 to Mon-Sun or Sun-Sat. Let's use 0-6 for frontend where 0=Sun.
+    # Django: 1=Sun, 2=Mon, ..., 7=Sat.
+    weekly_data = [{'day': i, 'minutes': 0} for i in range(7)]
+    for stat in weekly_stats:
+        if stat['weekday'] is not None:
+            # Convert 1-based (Sun=1) to 0-based (Sun=0)
+            idx = stat['weekday'] - 1
+            weekly_data[idx]['minutes'] = round(stat['total_minutes'] or 0)
+
+    # 3. Streak Stats
+    # Re-calculate streak logic or fetch from cache if we had one. 
+    # For now, we'll reuse the logic from dashboard or just return the current/longest.
+    # We'll calculate a simple history for the last 30 days for the "Streak" page.
+    streak_history = []
+    for i in range(30):
+        date = today - timedelta(days=i)
+        has_read = ReadingSession.objects.filter(
+            user=user,
+            started_at__date=date,
+            duration_seconds__gt=300 # At least 5 mins to count? Or just any reading. Let's say > 0.
+        ).exists()
+        streak_history.append({
+            'date': date.strftime('%Y-%m-%d'),
+            'read': has_read
+        })
+    streak_history.reverse()
+
+    # 4. Completion Stats
+    total_books = ReadingProgress.objects.filter(user=user).count()
+    completed_books = ReadingProgress.objects.filter(user=user, completed=True).count()
+    completion_rate = (completed_books / total_books * 100) if total_books > 0 else 0
+    
+    # Breakdown by category - Book has ManyToMany 'categories' field
+    # We'll get it from the first category of each completed book
+    categories_data = []
+    try:
+        category_counts = {}
+        completed_progress = ReadingProgress.objects.filter(user=user, completed=True).select_related('book')
+        for progress in completed_progress:
+            book_categories = progress.book.categories.all()
+            if book_categories.exists():
+                cat_name = book_categories.first().name
+            else:
+                cat_name = 'Uncategorized'
+            category_counts[cat_name] = category_counts.get(cat_name, 0) + 1
+        
+        categories_data = [{'name': name, 'value': count} for name, count in category_counts.items()]
+        categories_data.sort(key=lambda x: x['value'], reverse=True)
+    except Exception:
+        # If categories relation doesn't work, just return empty
+        categories_data = []
+
+    return Response({
+        'hourly_distribution': hourly_data,
+        'weekly_distribution': weekly_data,
+        'streak_history': streak_history,
+        'completion_stats': {
+            'rate': round(completion_rate),
+            'total': total_books,
+            'completed': completed_books,
+            'by_category': categories_data
+        }
+    })

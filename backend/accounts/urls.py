@@ -13,6 +13,13 @@ urlpatterns = [
     path('profile/', views.update_profile, name='update_profile'),
     path('logout/', views.logout, name='logout'),
     
+    # Password reset routes
+    path('password-reset/request/', views.request_password_reset, name='password_reset_request'),
+    path('password-reset/verify/', views.verify_reset_code, name='password_reset_verify'),
+    path('password-reset/complete/', views.complete_password_reset, name='password_reset_complete'),
+    path('password-reset/resend/', views.resend_reset_code, name='password_reset_resend'),
+    
     # Admin routes (via router)
     path('', include(router.urls)),
 ]
+

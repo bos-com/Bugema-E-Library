@@ -163,3 +163,197 @@ class AdminUserViewSet(viewsets.ModelViewSet):
         if user.id == request.user.id:
             return Response({'error': 'Cannot delete yourself'}, status=status.HTTP_400_BAD_REQUEST)
         return super().destroy(request, *args, **kwargs)
+
+
+# --- PASSWORD RESET VIEWS ---
+
+from django.core.mail import send_mail
+from django.conf import settings
+from .models import PasswordResetToken
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def request_password_reset(request):
+    """
+    Step 1: Request password reset - sends 6-digit code to email
+    Expects: { "email": "user@example.com" }
+    """
+    email = request.data.get('email', '').strip().lower()
+    
+    if not email:
+        return Response(
+            {'error': 'Email is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        # Don't reveal if email exists - still return success
+        return Response({
+            'message': 'If an account exists with this email, you will receive a reset code.',
+            'email': email
+        })
+    
+    # Create reset token
+    reset_token = PasswordResetToken.create_for_user(user)
+    
+    # Send email with code
+    try:
+        subject = 'Bugema E-Library - Password Reset Code'
+        message = f"""
+Hello {user.name},
+
+You requested a password reset for your Bugema E-Library account.
+
+Your verification code is: {reset_token.token}
+
+This code will expire in 2 minutes.
+
+If you did not request this reset, please ignore this email.
+
+Best regards,
+Bugema E-Library Team
+        """
+        
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+        
+        return Response({
+            'message': 'Reset code sent to your email',
+            'email': email,
+            'expires_in_seconds': 120  # 2 minutes
+        })
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to send password reset email: {str(e)}", exc_info=True)
+        
+        return Response(
+            {'error': 'Failed to send email. Please try again.'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_reset_code(request):
+    """
+    Step 2: Verify the 6-digit code
+    Expects: { "email": "user@example.com", "code": "123456" }
+    """
+    email = request.data.get('email', '').strip().lower()
+    code = request.data.get('code', '').strip()
+    
+    if not email or not code:
+        return Response(
+            {'error': 'Email and code are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'Invalid email or code'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Find valid token
+    token = PasswordResetToken.objects.filter(
+        user=user,
+        token=code,
+        is_used=False
+    ).first()
+    
+    if not token:
+        return Response(
+            {'error': 'Invalid or expired code'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if not token.is_valid():
+        return Response(
+            {'error': 'Code has expired. Please request a new one.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    return Response({
+        'message': 'Code verified successfully',
+        'valid': True
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def complete_password_reset(request):
+    """
+    Step 3: Complete password reset with new password
+    Expects: { "email": "user@example.com", "code": "123456", "password": "newpassword" }
+    """
+    email = request.data.get('email', '').strip().lower()
+    code = request.data.get('code', '').strip()
+    new_password = request.data.get('password', '')
+    
+    if not email or not code or not new_password:
+        return Response(
+            {'error': 'Email, code, and new password are required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if len(new_password) < 6:
+        return Response(
+            {'error': 'Password must be at least 6 characters'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response(
+            {'error': 'Invalid email or code'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Find and validate token
+    token = PasswordResetToken.objects.filter(
+        user=user,
+        token=code,
+        is_used=False
+    ).first()
+    
+    if not token or not token.is_valid():
+        return Response(
+            {'error': 'Invalid or expired code'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Update password
+    user.set_password(new_password)
+    user.save()
+    
+    # Mark token as used
+    token.is_used = True
+    token.save()
+    
+    return Response({
+        'message': 'Password reset successfully. You can now login with your new password.'
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def resend_reset_code(request):
+    """
+    Resend password reset code
+    Expects: { "email": "user@example.com" }
+    """
+    # Just call the request_password_reset function
+    return request_password_reset(request)

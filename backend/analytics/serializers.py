@@ -6,7 +6,9 @@ class OverviewSerializer(serializers.Serializer):
     total_categories = serializers.IntegerField()
     total_users = serializers.IntegerField()
     total_reads = serializers.IntegerField()
+    total_reads_period = serializers.IntegerField(required=False)
     active_users_7d = serializers.IntegerField()
+    period = serializers.CharField(required=False)
 
 
 class MostReadBookSerializer(serializers.Serializer):
@@ -14,6 +16,13 @@ class MostReadBookSerializer(serializers.Serializer):
     title = serializers.CharField()
     author = serializers.CharField()
     view_count = serializers.IntegerField()
+    like_count = serializers.IntegerField()
+
+
+class MostLikedBookSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    title = serializers.CharField()
+    author = serializers.CharField()
     like_count = serializers.IntegerField()
 
 
@@ -59,8 +68,8 @@ class UserReadingStatsSerializer(serializers.Serializer):
 class AdminAnalyticsSerializer(serializers.Serializer):
     overview = OverviewSerializer()
     most_read_books = MostReadBookSerializer(many=True)
+    most_liked_books = MostLikedBookSerializer(many=True, required=False)
     most_liked_categories = CategoryLikesSerializer(many=True)
     reads_per_day = ReadsPerDaySerializer(many=True)
     reads_per_hour = ReadsPerHourSerializer(many=True)
     top_search_terms = SearchTermSerializer(many=True)
-

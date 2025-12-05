@@ -16,6 +16,20 @@ from catalog.models import Book, Category, BookLike
 from reading.models import ReadingProgress, ReadingSession
 
 
+def get_period_date_range(period: str):
+    """Get start date based on period parameter"""
+    end_date = timezone.now()
+    if period == 'today':
+        start_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif period == 'week':
+        start_date = end_date - timedelta(days=7)
+    elif period == 'year':
+        start_date = end_date - timedelta(days=365)
+    else:  # 'month' default
+        start_date = end_date - timedelta(days=30)
+    return start_date, end_date
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def admin_analytics_overview(request):
@@ -24,20 +38,42 @@ def admin_analytics_overview(request):
         if request.user.role != 'ADMIN':
             return Response({'error': 'Admin access required'}, status=status.HTTP_403_FORBIDDEN)
         
-        # Time range (last 30 days)
-        end_date = timezone.now()
-        start_date = end_date - timedelta(days=30)
+        # Get period parameter (today, week, month, year)
+        period = request.query_params.get('period', 'month')
+        start_date, end_date = get_period_date_range(period)
+        
+        # Default time range (last 30 days for graphs)
+        graph_start_date = end_date - timedelta(days=30)
         
         # --- Most Read Books (using Django ORM syntax) ---
         most_read_books = Book.objects.filter(
             is_published=True
         ).order_by('-view_count')[:10]
         
-        # --- Most Liked Categories (using Django ORM syntax) ---
+        # --- Most Liked Books (filtered by period) ---
+        liked_in_period = BookLike.objects.filter(created_at__gte=start_date)
+        book_likes_count = {}
+        for like in liked_in_period:
+            book_id = like.book_id
+            book_likes_count[book_id] = book_likes_count.get(book_id, 0) + 1
+        
+        top_liked_book_ids = sorted(book_likes_count.keys(), key=lambda x: book_likes_count[x], reverse=True)[:10]
+        most_liked_books = []
+        for book_id in top_liked_book_ids:
+            try:
+                book = Book.objects.get(pk=book_id, is_published=True)
+                most_liked_books.append({
+                    'id': str(book.pk),
+                    'title': book.title,
+                    'author': book.author.name if book.author else 'Unknown',
+                    'like_count': book_likes_count[book_id]
+                })
+            except Book.DoesNotExist:
+                continue
+        
+        # --- Most Liked Categories (filtered by period) ---
         category_likes = {}
-        # Iterate through all BookLike objects
-        for like in BookLike.objects.all():
-            # book.categories is a ManyToMany relationship, so we use .all()
+        for like in liked_in_period:
             for category in like.book.categories.all():
                 category_name = category.name
                 category_likes[category_name] = category_likes.get(category_name, 0) + 1
@@ -51,7 +87,7 @@ def admin_analytics_overview(request):
         # --- Reads per day (last 30 days) ---
         reads_per_day = []
         for i in range(30):
-            date = start_date + timedelta(days=i)
+            date = graph_start_date + timedelta(days=i)
             next_date = date + timedelta(days=1)
             
             # Count book opens using the new BookView model
@@ -68,7 +104,7 @@ def admin_analytics_overview(request):
         # --- Reads per hour (Peak usage times) ---
         # Group by hour of day (0-23)
         reads_per_hour_qs = BookView.objects.filter(
-            viewed_at__gte=start_date
+            viewed_at__gte=graph_start_date
         ).annotate(
             hour=ExtractHour('viewed_at')
         ).values('hour').annotate(
@@ -87,7 +123,7 @@ def admin_analytics_overview(request):
             viewed_at__gte=week_ago
         ).values_list('user_id', flat=True).distinct()
         
-        # --- Top search terms (using SearchQuery model) ---
+        # --- Top search terms (filtered by period) ---
         search_events = SearchQuery.objects.filter(
             searched_at__gte=start_date
         )
@@ -113,27 +149,31 @@ def admin_analytics_overview(request):
         total_user_ids = set(itertools.chain(all_view_users, all_search_users))
         total_users = len(total_user_ids)
         
-        # Total reads are now total BookView records
-        total_reads = BookView.objects.count()
+        # Total reads filtered by period
+        total_reads_period = BookView.objects.filter(viewed_at__gte=start_date).count()
+        total_reads_all_time = BookView.objects.count()
         
         serializer = AdminAnalyticsSerializer({
             'overview': {
                 'total_books': total_books,
                 'total_categories': total_categories,
                 'total_users': total_users,
-                'total_reads': total_reads,
-                'active_users_7d': len(active_user_ids)
+                'total_reads': total_reads_all_time,
+                'total_reads_period': total_reads_period,
+                'active_users_7d': len(active_user_ids),
+                'period': period
             },
             'most_read_books': [
                 {
                     # Django IDs are int/UUID, we ensure they are string for JSON safety
                     'id': str(book.pk), 
                     'title': book.title,
-                    'author': book.author,
+                    'author': book.author.name if book.author else 'Unknown',
                     'view_count': book.view_count,
                     'like_count': book.like_count
                 } for book in most_read_books
             ],
+            'most_liked_books': most_liked_books,
             'most_liked_categories': [
                 {'name': name, 'likes': likes} for name, likes in most_liked_categories
             ],
