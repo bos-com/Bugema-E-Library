@@ -46,7 +46,7 @@ const AnalyticsTimePage = () => {
     const peakHour = hourlyData.reduce((max: any, h: any) => h.minutes > (max?.minutes || 0) ? h : max, hourlyData[0]);
 
     // Get data based on selected time range
-    const displayData = timeRange === 'week' ? barChartData : barChartData.map(d => ({
+    const displayData = timeRange === 'week' ? barChartData : barChartData.map((d: any) => ({
         ...d,
         minutes: Math.round(d.minutes * 4) // Approximate monthly
     }));
