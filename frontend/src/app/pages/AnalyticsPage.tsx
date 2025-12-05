@@ -6,7 +6,11 @@ import LoadingOverlay from '../../components/feedback/LoadingOverlay';
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 const AnalyticsPage = () => {
-    const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: getDashboard });
+    const { data, isLoading } = useQuery({
+        queryKey: ['dashboard'],
+        queryFn: getDashboard,
+        staleTime: 2 * 60 * 1000,
+    });
 
     if (isLoading) {
         return <LoadingOverlay label="Loading analytics" />;

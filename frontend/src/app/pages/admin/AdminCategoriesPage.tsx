@@ -6,7 +6,11 @@ import CategoryForm from '../../../components/forms/CategoryForm';
 
 const AdminCategoriesPage = () => {
   const queryClient = useQueryClient();
-  const { data, isPending } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
+  const { data, isPending } = useQuery({
+    queryKey: ['categories'],
+    queryFn: getCategories,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const mutation = useMutation({
     mutationFn: createCategory,

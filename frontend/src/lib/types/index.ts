@@ -107,6 +107,7 @@ export interface DashboardData {
   stats: {
     total_books_read: number;
     total_time_seconds: number;
+    total_time_this_week_seconds?: number;
     total_pages_read: number;
     current_streak_days: number;
     longest_streak_days: number;

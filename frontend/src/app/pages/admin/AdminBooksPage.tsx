@@ -15,6 +15,7 @@ const AdminBooksPage = () => {
   const { data, isPending } = useQuery({
     queryKey: ['admin-books', searchQuery],
     queryFn: () => getBooks({ page: 1, ordering: '-created_at', query: searchQuery }),
+    staleTime: 2 * 60 * 1000,
   });
 
   const createMutation = useMutation({
@@ -90,11 +91,10 @@ const AdminBooksPage = () => {
               {data?.results.map((book) => (
                 <div
                   key={book.id}
-                  className={`rounded-2xl border p-4 transition ${
-                    selectedBook?.id === book.id
+                  className={`rounded-2xl border p-4 transition ${selectedBook?.id === book.id
                       ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10'
                       : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900/40'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">

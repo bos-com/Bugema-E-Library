@@ -9,6 +9,10 @@ import BookDetailPage from '../app/pages/BookDetailPage';
 import ReaderPage from '../app/pages/ReaderPage';
 import DashboardPage from '../app/pages/DashboardPage';
 import AnalyticsPage from '../app/pages/AnalyticsPage';
+import AnalyticsTimePage from '../app/pages/analytics/AnalyticsTimePage';
+import AnalyticsStreakPage from '../app/pages/analytics/AnalyticsStreakPage';
+import AnalyticsCompletionPage from '../app/pages/analytics/AnalyticsCompletionPage';
+import CompletedBooksPage from '../app/pages/CompletedBooksPage';
 import ProfilePage from '../app/pages/ProfilePage';
 import LoginPage from '../app/pages/LoginPage';
 import RegisterPage from '../app/pages/RegisterPage';
@@ -57,6 +61,38 @@ const AppRoutes = () => (
         element={
           <ProtectedRoute>
             <AnalyticsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="analytics/time"
+        element={
+          <ProtectedRoute>
+            <AnalyticsTimePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="analytics/streak"
+        element={
+          <ProtectedRoute>
+            <AnalyticsStreakPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="analytics/completion"
+        element={
+          <ProtectedRoute>
+            <AnalyticsCompletionPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="books/completed"
+        element={
+          <ProtectedRoute>
+            <CompletedBooksPage />
           </ProtectedRoute>
         }
       />

@@ -5,7 +5,11 @@ import StatCard from '../../components/cards/StatCard';
 import LoadingOverlay from '../../components/feedback/LoadingOverlay';
 
 const HomePage = () => {
-  const { data: categoriesData } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
+  const { data: categoriesData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: getCategories,
+    staleTime: 5 * 60 * 1000,
+  });
   // Handle both array (if pagination disabled) and paginated response
   const categories = Array.isArray(categoriesData)
     ? categoriesData
@@ -13,6 +17,7 @@ const HomePage = () => {
   const { data: books, isLoading } = useQuery({
     queryKey: ['books', 'featured'],
     queryFn: () => getBooks({ ordering: '-view_count', page: 1 }),
+    staleTime: 5 * 60 * 1000,
   });
 
   return (

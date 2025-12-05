@@ -5,6 +5,7 @@ import { getBooks, toggleBookmark, toggleLike } from '../../lib/api/catalog';
 import LoadingOverlay from '../../components/feedback/LoadingOverlay';
 import { useAuthStore } from '../../lib/store/auth';
 import BookCard from '../../components/catalog/BookCard';
+import type { BookSummary, PaginatedResponse } from '../../lib/types';
 
 type ViewMode = 'grid' | 'list';
 
@@ -34,14 +35,61 @@ const CatalogPage = () => {
 
   const likeMutation = useMutation({
     mutationFn: (bookId: number) => toggleLike(bookId),
-    onSuccess: () => {
+    onMutate: async (bookId) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['books'] });
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData<PaginatedResponse<BookSummary>>(['books', { search, page, categoryId }]);
+      // Optimistically update the cache
+      queryClient.setQueryData<PaginatedResponse<BookSummary>>(['books', { search, page, categoryId }], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          results: old.results.map(book =>
+            book.id === bookId
+              ? { ...book, is_liked: !book.is_liked, like_count: book.is_liked ? book.like_count - 1 : book.like_count + 1 }
+              : book
+          )
+        };
+      });
+      return { previousData };
+    },
+    onError: (_err, _bookId, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['books', { search, page, categoryId }], context.previousData);
+      }
+    },
+    onSettled: () => {
+      // Sync with server after mutation
       queryClient.invalidateQueries({ queryKey: ['books'] });
     },
   });
 
   const bookmarkMutation = useMutation({
     mutationFn: (bookId: number) => toggleBookmark(bookId),
-    onSuccess: () => {
+    onMutate: async (bookId) => {
+      await queryClient.cancelQueries({ queryKey: ['books'] });
+      const previousData = queryClient.getQueryData<PaginatedResponse<BookSummary>>(['books', { search, page, categoryId }]);
+      queryClient.setQueryData<PaginatedResponse<BookSummary>>(['books', { search, page, categoryId }], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          results: old.results.map(book =>
+            book.id === bookId
+              ? { ...book, is_bookmarked: !book.is_bookmarked, bookmark_count: book.is_bookmarked ? book.bookmark_count - 1 : book.bookmark_count + 1 }
+              : book
+          )
+        };
+      });
+      return { previousData };
+    },
+    onError: (_err, _bookId, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['books', { search, page, categoryId }], context.previousData);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['books'] });
     },
   });

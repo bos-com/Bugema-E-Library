@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
@@ -9,12 +10,32 @@ import StatCard from '../../../components/cards/StatCard';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e'];
 
+type TimePeriod = 'today' | 'week' | 'month' | 'year';
+
+const periodLabels: Record<TimePeriod, string> = {
+  today: 'Today',
+  week: 'This Week',
+  month: 'This Month',
+  year: 'This Year'
+};
+
 const AdminOverviewPage = () => {
-  const { data, isPending } = useQuery({ queryKey: ['admin-overview'], queryFn: getAdminOverview });
+  const [searchPeriod, setSearchPeriod] = useState<TimePeriod>('month');
+  const [likedPeriod, setLikedPeriod] = useState<TimePeriod>('month');
+  const [readsPeriod, setReadsPeriod] = useState<TimePeriod>('month');
+
+  // Use period for filtering
+  const { data, isPending, refetch } = useQuery({
+    queryKey: ['admin-overview', searchPeriod],
+    queryFn: () => getAdminOverview(searchPeriod),
+    staleTime: 2 * 60 * 1000,
+  });
 
   if (isPending || !data) {
     return <LoadingOverlay label="Fetching analytics" />;
   }
+
+  const filteredReadsPerDay = data.reads_per_day || [];
 
   return (
     <div className="space-y-8 animate-in">
@@ -44,17 +65,37 @@ const AdminOverviewPage = () => {
           }
           hint="Registered users"
         />
-        <StatCard
-          variant="violet"
-          label="Total Reads"
-          value={data.overview.total_reads}
-          icon={
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        <div className="relative">
+          <div className="card p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Reads</p>
+              <select
+                value={readsPeriod}
+                onChange={(e) => setReadsPeriod(e.target.value as TimePeriod)}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 dark:border-white/10 dark:bg-slate-800 dark:text-white"
+              >
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="year">This Year</option>
+              </select>
+            </div>
+            <p className="text-3xl font-bold text-violet-600 dark:text-violet-400">
+              {data.overview.total_reads_period || data.overview.total_reads}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Book opens ({periodLabels[readsPeriod]})
+            </p>
+          </div>
+          <div className="absolute top-2 right-12 group">
+            <svg className="h-4 w-4 text-slate-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-          }
-          hint="Last 30 days"
-        />
+            <div className="absolute right-0 top-6 z-10 hidden group-hover:block w-48 p-2 rounded-lg bg-slate-900 text-white text-xs shadow-lg">
+              Each time a user opens a book to read it, it counts as 1 read.
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Charts Grid */}
@@ -72,7 +113,7 @@ const AdminOverviewPage = () => {
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.reads_per_day}>
+              <LineChart data={filteredReadsPerDay}>
                 <defs>
                   <linearGradient id="colorReads" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -80,16 +121,8 @@ const AdminOverviewPage = () => {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.5} />
-                <XAxis
-                  dataKey="date"
-                  hide
-                  stroke="#64748b"
-                />
-                <YAxis
-                  stroke="#64748b"
-                  allowDecimals={false}
-                  tick={{ fill: '#64748b', fontSize: 12 }}
-                />
+                <XAxis dataKey="date" hide stroke="#64748b" />
+                <YAxis stroke="#64748b" allowDecimals={false} tick={{ fill: '#64748b', fontSize: 12 }} />
                 <Tooltip
                   contentStyle={{
                     background: 'white',
@@ -115,9 +148,20 @@ const AdminOverviewPage = () => {
 
         {/* Most Liked Categories */}
         <div className="card">
-          <div className="mb-6">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Popular Categories</h2>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Most liked book categories</p>
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Popular Categories</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Most liked book categories</p>
+            </div>
+            <select
+              value={likedPeriod}
+              onChange={(e) => setLikedPeriod(e.target.value as TimePeriod)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 dark:border-white/10 dark:bg-slate-800 dark:text-white"
+            >
+              <option value="today">Today</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+            </select>
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -134,7 +178,7 @@ const AdminOverviewPage = () => {
                   label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                   labelLine={{ stroke: '#64748b' }}
                 >
-                  {data.most_liked_categories.map((entry, index) => (
+                  {data.most_liked_categories.map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -146,10 +190,7 @@ const AdminOverviewPage = () => {
                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                   }}
                 />
-                <Legend
-                  wrapperStyle={{ fontSize: '12px' }}
-                  iconType="circle"
-                />
+                <Legend wrapperStyle={{ fontSize: '12px' }} iconType="circle" />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -160,7 +201,7 @@ const AdminOverviewPage = () => {
       <div className="card">
         <div className="mb-6">
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">Peak Usage Times</h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400">Reads by hour of day</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">Book opens by hour of day (shows when users are most active)</p>
         </div>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
@@ -176,12 +217,9 @@ const AdminOverviewPage = () => {
                 dataKey="hour"
                 stroke="#64748b"
                 tick={{ fill: '#64748b', fontSize: 12 }}
+                tickFormatter={(hour) => `${hour}:00`}
               />
-              <YAxis
-                stroke="#64748b"
-                allowDecimals={false}
-                tick={{ fill: '#64748b', fontSize: 12 }}
-              />
+              <YAxis stroke="#64748b" allowDecimals={false} tick={{ fill: '#64748b', fontSize: 12 }} />
               <Tooltip
                 contentStyle={{
                   background: 'white',
@@ -190,6 +228,8 @@ const AdminOverviewPage = () => {
                   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                 }}
                 labelStyle={{ color: '#1e293b', fontWeight: 600 }}
+                labelFormatter={(hour) => `${hour}:00 - ${hour + 1}:00`}
+                formatter={(value: number) => [`${value} opens`, 'Book Opens']}
               />
               <Bar dataKey="count" fill="url(#colorBar)" radius={[8, 8, 0, 0]} />
             </BarChart>
@@ -197,28 +237,65 @@ const AdminOverviewPage = () => {
         </div>
       </div>
 
-      {/* Lists Grid */}
-      <div className="grid gap-6 md:grid-cols-2">
+      {/* Lists Grid - 3 columns */}
+      <div className="grid gap-6 md:grid-cols-3">
         {/* Most Read Books */}
         <div className="card">
           <h3 className="mb-4 text-xl font-bold text-slate-900 dark:text-white">Most Read Books</h3>
           <ul className="space-y-3">
-            {data.most_read_books.map((book, index) => (
+            {data.most_read_books?.slice(0, 6).map((book: any, index: number) => (
               <li
                 key={book.id}
-                className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors hover:bg-slate-100 dark:border-white/5 dark:bg-slate-800/50 dark:hover:bg-slate-800"
+                className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 transition-colors hover:bg-slate-100 dark:border-white/5 dark:bg-slate-800/50 dark:hover:bg-slate-800"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-sm font-bold text-white">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-xs font-bold text-white">
                     {index + 1}
                   </div>
-                  <div>
-                    <p className="font-semibold text-slate-900 dark:text-white">{book.title}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{book.title}</p>
                     <p className="text-xs text-slate-600 dark:text-slate-400">{book.author}</p>
                   </div>
                 </div>
-                <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+                <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 shrink-0">
                   {book.view_count} views
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Most Liked Books */}
+        <div className="card">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Most Liked Books</h3>
+            <select
+              value={likedPeriod}
+              onChange={(e) => setLikedPeriod(e.target.value as TimePeriod)}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 dark:border-white/10 dark:bg-slate-800 dark:text-white"
+            >
+              <option value="today">Today</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+            </select>
+          </div>
+          <ul className="space-y-3">
+            {(data.most_liked_books?.length > 0 ? data.most_liked_books : data.most_read_books)?.slice(0, 6).map((book: any, index: number) => (
+              <li
+                key={book.id}
+                className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 transition-colors hover:bg-slate-100 dark:border-white/5 dark:bg-slate-800/50 dark:hover:bg-slate-800"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-pink-600 text-xs font-bold text-white">
+                    {index + 1}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{book.title}</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">{book.author}</p>
+                  </div>
+                </div>
+                <span className="rounded-full bg-rose-100 px-2 py-1 text-xs font-semibold text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 shrink-0">
+                  {book.like_count || 0} likes
                 </span>
               </li>
             ))}
@@ -227,20 +304,31 @@ const AdminOverviewPage = () => {
 
         {/* Top Search Terms */}
         <div className="card">
-          <h3 className="mb-4 text-xl font-bold text-slate-900 dark:text-white">Top Search Terms</h3>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Top Search Terms</h3>
+            <select
+              value={searchPeriod}
+              onChange={(e) => setSearchPeriod(e.target.value as TimePeriod)}
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 dark:border-white/10 dark:bg-slate-800 dark:text-white"
+            >
+              <option value="today">Today</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+            </select>
+          </div>
           <ul className="space-y-3">
-            {data.top_search_terms.map((term, index) => (
+            {data.top_search_terms?.slice(0, 6).map((term: any, index: number) => (
               <li
                 key={term.term}
-                className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors hover:bg-slate-100 dark:border-white/5 dark:bg-slate-800/50 dark:hover:bg-slate-800"
+                className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 transition-colors hover:bg-slate-100 dark:border-white/5 dark:bg-slate-800/50 dark:hover:bg-slate-800"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-sm font-bold text-white">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-xs font-bold text-white">
                     {index + 1}
                   </div>
-                  <span className="font-medium text-slate-900 dark:text-white">#{term.term}</span>
+                  <span className="text-sm font-medium text-slate-900 dark:text-white">#{term.term}</span>
                 </div>
-                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 shrink-0">
                   {term.count} searches
                 </span>
               </li>
@@ -253,4 +341,3 @@ const AdminOverviewPage = () => {
 };
 
 export default AdminOverviewPage;
-

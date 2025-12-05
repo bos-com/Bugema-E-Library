@@ -2,8 +2,13 @@ import api from './client';
 import type { DashboardData, ReadingProgress, ReadingSession } from '../types';
 
 export const getDashboard = async () => {
-  const { data } = await api.get<DashboardData>('/reading/dashboard/');
-  return data;
+  const response = await api.get<DashboardData>('/reading/dashboard/');
+  return response.data;
+};
+
+export const getUserAnalytics = async () => {
+  const response = await api.get('/reading/analytics/');
+  return response.data;
 };
 
 export const getProgress = async (bookId: number | string) => {

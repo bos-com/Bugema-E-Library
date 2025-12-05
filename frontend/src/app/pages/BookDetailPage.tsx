@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getBookDetail, toggleBookmark, toggleLike } from '../../lib/api/catalog';
 import LoadingOverlay from '../../components/feedback/LoadingOverlay';
 import { useAuthStore } from '../../lib/store/auth';
+import type { BookDetail } from '../../lib/types';
 
 const BookDetailPage = () => {
   const { bookId } = useParams();
@@ -18,12 +19,48 @@ const BookDetailPage = () => {
 
   const likeMutation = useMutation({
     mutationFn: () => toggleLike(Number(bookId)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['book', bookId] }),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['book', bookId] });
+      const previousBook = queryClient.getQueryData<BookDetail>(['book', bookId]);
+      queryClient.setQueryData<BookDetail>(['book', bookId], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          is_liked: !old.is_liked,
+          like_count: old.is_liked ? old.like_count - 1 : old.like_count + 1
+        };
+      });
+      return { previousBook };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousBook) {
+        queryClient.setQueryData(['book', bookId], context.previousBook);
+      }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['book', bookId] }),
   });
 
   const bookmarkMutation = useMutation({
     mutationFn: () => toggleBookmark(Number(bookId)),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['book', bookId] }),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['book', bookId] });
+      const previousBook = queryClient.getQueryData<BookDetail>(['book', bookId]);
+      queryClient.setQueryData<BookDetail>(['book', bookId], (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          is_bookmarked: !old.is_bookmarked,
+          bookmark_count: old.is_bookmarked ? old.bookmark_count - 1 : old.bookmark_count + 1
+        };
+      });
+      return { previousBook };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousBook) {
+        queryClient.setQueryData(['book', bookId], context.previousBook);
+      }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['book', bookId] }),
   });
 
   if (isLoading || !book) {
@@ -83,8 +120,8 @@ const BookDetailPage = () => {
               <div className="flex gap-2">
                 <button
                   className={`w-1/2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${book.is_liked
-                      ? 'border-red-500 bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400'
-                      : 'border-slate-300 text-slate-700 hover:border-red-500/50 hover:bg-red-50 dark:border-white/10 dark:text-white dark:hover:bg-red-500/5'
+                    ? 'border-red-500 bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400'
+                    : 'border-slate-300 text-slate-700 hover:border-red-500/50 hover:bg-red-50 dark:border-white/10 dark:text-white dark:hover:bg-red-500/5'
                     }`}
                   onClick={() => likeMutation.mutate()}
                 >
@@ -92,8 +129,8 @@ const BookDetailPage = () => {
                 </button>
                 <button
                   className={`w-1/2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${book.is_bookmarked
-                      ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-400/10 dark:text-brand-300'
-                      : 'border-slate-300 text-slate-700 hover:border-brand-400/50 hover:bg-brand-50 dark:border-white/10 dark:text-white dark:hover:bg-brand-400/5'
+                    ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-400/10 dark:text-brand-300'
+                    : 'border-slate-300 text-slate-700 hover:border-brand-400/50 hover:bg-brand-50 dark:border-white/10 dark:text-white dark:hover:bg-brand-400/5'
                     }`}
                   onClick={() => bookmarkMutation.mutate()}
                 >
