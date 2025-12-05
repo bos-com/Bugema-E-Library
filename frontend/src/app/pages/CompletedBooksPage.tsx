@@ -5,8 +5,8 @@ import LoadingOverlay from '../../components/feedback/LoadingOverlay';
 
 const CompletedBooksPage = () => {
     const navigate = useNavigate();
-    const { data, isLoading } = useQuery({ 
-        queryKey: ['dashboard'], 
+    const { data, isLoading } = useQuery({
+        queryKey: ['dashboard'],
         queryFn: getDashboard,
         staleTime: 2 * 60 * 1000,
     });
@@ -45,9 +45,9 @@ const CompletedBooksPage = () => {
                             className="group cursor-pointer rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:border-brand-300 hover:shadow-md dark:border-white/5 dark:bg-slate-800"
                         >
                             <div className="aspect-[2/3] w-full overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-700 mb-4">
-                                {book.cover_image ? (
+                                {book.book_cover ? (
                                     <img
-                                        src={book.cover_image}
+                                        src={book.book_cover}
                                         alt={book.book_title}
                                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                                     />

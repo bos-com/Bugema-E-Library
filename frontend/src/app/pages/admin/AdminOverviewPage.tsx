@@ -280,7 +280,7 @@ const AdminOverviewPage = () => {
             </select>
           </div>
           <ul className="space-y-3">
-            {(data.most_liked_books?.length > 0 ? data.most_liked_books : data.most_read_books)?.slice(0, 6).map((book: any, index: number) => (
+            {(data.most_liked_books && data.most_liked_books.length > 0 ? data.most_liked_books : data.most_read_books)?.slice(0, 6).map((book: any, index: number) => (
               <li
                 key={book.id}
                 className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-3 transition-colors hover:bg-slate-100 dark:border-white/5 dark:bg-slate-800/50 dark:hover:bg-slate-800"

@@ -32,7 +32,7 @@ const AnalyticsTimePage = () => {
 
     // Format weekly data for Bar Chart with different colors
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const barChartData = weeklyData.map((d: any, index: number) => ({
+    const barChartData = weeklyData.map((d: { day: number; minutes: number }, index: number) => ({
         day: days[d.day],
         minutes: d.minutes,
         fullDay: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.day],
@@ -169,7 +169,7 @@ const AnalyticsTimePage = () => {
                                     labelFormatter={(label, payload) => payload[0]?.payload?.fullDay || label}
                                 />
                                 <Bar dataKey="minutes" radius={[6, 6, 0, 0]}>
-                                    {displayData.map((entry, index) => (
+                                    {displayData.map((entry: any, index: number) => (
                                         <Cell key={`cell-${index}`} fill={BAR_COLORS[index % BAR_COLORS.length]} />
                                     ))}
                                 </Bar>

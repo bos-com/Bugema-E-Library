@@ -117,6 +117,7 @@ export interface DashboardData {
     total_bookmarks?: number;
     average_session_seconds?: number;
     daily_activity?: Array<{ date: string; minutes: number }>;
+    streak_history?: Array<{ date: string; read: boolean }>;
   };
 }
 
@@ -127,8 +128,16 @@ export interface AdminOverview {
     total_users: number;
     total_reads: number;
     active_users_7d: number;
+    total_reads_period?: number;
   };
   most_read_books: Array<{
+    id: string;
+    title: string;
+    author: string;
+    view_count: number;
+    like_count: number;
+  }>;
+  most_liked_books?: Array<{
     id: string;
     title: string;
     author: string;
