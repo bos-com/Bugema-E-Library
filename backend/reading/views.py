@@ -93,9 +93,9 @@ class ReadingProgressView(generics.RetrieveUpdateAPIView):
 def user_dashboard(request):
     """Get user dashboard data"""
     user = request.user
+    today = timezone.now().date()
     
     try:
-        # FIX: Converted MongoEngine queries to Django ORM filter()
         # Get reading progress
         in_progress = ReadingProgress.objects.filter(
             user=user,
@@ -107,81 +107,75 @@ def user_dashboard(request):
             completed=True
         ).order_by('-updated_at')[:10]
         
-        # Get liked books (using select_related for efficiency)
+        # Get liked books
         liked_books = BookLike.objects.filter(user=user).select_related('book').order_by('-created_at')[:10]
-        # Extract IDs to fetch Book data, ensuring we only get published books
         liked_book_ids = [like.book_id for like in liked_books]
         liked_books_data = Book.objects.filter(pk__in=liked_book_ids, is_published=True).order_by('-created_at')
         
         # Get bookmarked books
         bookmarked_books_qs = Bookmark.objects.filter(user=user).select_related('book').order_by('-created_at')[:10]
         bookmarked_book_ids = [bookmark.book_id for bookmark in bookmarked_books_qs]
-        # Fetch book details
         bookmarked_books_data = Book.objects.filter(pk__in=bookmarked_book_ids, is_published=True)
         
         # Calculate stats
         total_books_read = ReadingProgress.objects.filter(user=user, completed=True).count()
         
-        # FIX: Use Django ORM aggregate (Sum) for total_time_seconds
+        # Total time (sum of all progress time)
         time_sum = ReadingProgress.objects.filter(user=user).aggregate(Sum('total_time_seconds'))
         total_time_seconds = time_sum['total_time_seconds__sum'] or 0
         
-        # FIX: Calculate total pages read (requires looping as before, unless using annotation/aggregation which is complex here)
+        # Total pages read
         total_pages_read = sum(
             progress.book.pages or 0 for progress in 
             ReadingProgress.objects.filter(user=user, completed=True).select_related('book')
         )
         
-        # Calculate reading streak
-        # FIX: Converted MongoEngine query to Django ORM filter()
+        # --- Improved Streak Calculation ---
         current_streak_days = 0
         longest_streak = 0
-        today = timezone.now().date()
         
-        # FIX: Converted MongoEngine query to Django ORM filter()
+        # Get all dates with reading activity (from sessions)
         sessions = ReadingSession.objects.filter(user=user).order_by('-started_at')
         
-        # (Streak logic remains Python-based and uses standard objects)
-        if sessions:
-            # Note: The original streak logic was overly simple and prone to error.
-            # This basic version maintains the original intent:
-            
-            # Get unique dates of reading sessions
-            # NOTE: This is slightly complex in pure Django ORM for distinct dates, 
-            # so we'll fetch objects and process dates in Python for simplicity.
+        if sessions.exists():
+            # Get unique dates, sorted descending
             session_dates = sorted(
-                list(set(s.started_at.date() for s in sessions)), 
+                list(set(s.started_at.astimezone(timezone.get_current_timezone()).date() for s in sessions)), 
                 reverse=True
             )
-
-            # Calculate current streak
-            current_streak = 0
-            target_date = today
             
-            # If the last session was today or yesterday
+            # Calculate Current Streak
+            # Streak is active if last read was today or yesterday
             if session_dates and (session_dates[0] == today or session_dates[0] == today - timedelta(days=1)):
-                current_streak = 1
-                if session_dates[0] == today:
-                    target_date -= timedelta(days=1)
-                else: # session_dates[0] == today - timedelta(days=1)
-                    target_date -= timedelta(days=2)
+                current_streak_days = 1
+                expected_date = session_dates[0] - timedelta(days=1)
                 
-                # Iterate backwards through dates
                 for date in session_dates[1:]:
-                    if date == target_date:
-                        current_streak += 1
-                        target_date -= timedelta(days=1)
-                    elif date < target_date:
+                    if date == expected_date:
+                        current_streak_days += 1
+                        expected_date -= timedelta(days=1)
+                    elif date < expected_date:
                         break
             
-            current_streak_days = current_streak
-            # Longest streak calculation is complex and skipped for this fix, 
-            # as it was likely incomplete/placeholder in the original Mongo code.
+            # Calculate Longest Streak
+            current_sequence = 0
+            longest_streak = 0
+            if session_dates:
+                # Sort ascending for longest streak calculation
+                dates_asc = sorted(session_dates)
+                current_sequence = 1
+                longest_streak = 1
+                
+                for i in range(1, len(dates_asc)):
+                    if dates_asc[i] == dates_asc[i-1] + timedelta(days=1):
+                        current_sequence += 1
+                    else:
+                        current_sequence = 1
+                    longest_streak = max(longest_streak, current_sequence)
         
         # Get favorite category
         favorite_category = None
         category_counts = {}
-        # FIX: Ensure we select related 'book' for efficiency
         for progress in ReadingProgress.objects.filter(user=user, completed=True).select_related('book'):
             if progress.book_id:
                 for category in progress.book.categories.all():
@@ -191,53 +185,53 @@ def user_dashboard(request):
         
         if category_counts:
             favorite_category = max(category_counts, key=category_counts.get)
-        else:
-            favorite_category = None
         
-        # Reading goal progress (assuming 12 books per year)
+        # Reading goal progress
         reading_goal_progress = min(total_books_read / 12 * 100, 100)
         
-        # Calculate average session duration
+        # Average session duration
         avg_session = ReadingSession.objects.filter(
             user=user,
             ended_at__isnull=False
         ).aggregate(avg=Avg('duration_seconds'))
         average_session_seconds = avg_session['avg'] or 0
         
-        # Get total likes and bookmarks for this user
+        # Total likes and bookmarks
         total_likes = BookLike.objects.filter(user=user).count()
         total_bookmarks = Bookmark.objects.filter(user=user).count()
         
-        # Calculate daily activity for the last 14 days
+        # --- Daily Activity (Last 14 days) ---
         daily_activity = []
         for i in range(14):
             date = today - timedelta(days=i)
-            # Filter sessions that started on this date
+            # Sum duration of sessions started on this date
+            # Using range to cover the full day in local time if possible, but date lookup is okay for now
             day_sessions = ReadingSession.objects.filter(
                 user=user,
-                started_at__date=date,
-                ended_at__isnull=False
+                started_at__date=date
             ).aggregate(total_time=Sum('duration_seconds'))
+            
+            minutes = round((day_sessions['total_time'] or 0) / 60)
             
             daily_activity.append({
                 'date': date.strftime('%Y-%m-%d'),
-                'minutes': round((day_sessions['total_time'] or 0) / 60)
+                'minutes': minutes
             })
-        daily_activity.reverse() # Show oldest to newest
+        daily_activity.reverse()
         
-        # Calculate total time this week
-        week_start = today - timedelta(days=today.weekday())  # Monday
+        # --- Total Time This Week ---
+        # Start of current week (Monday)
+        week_start = today - timedelta(days=today.weekday())
         week_sessions = ReadingSession.objects.filter(
             user=user,
-            started_at__date__gte=week_start,
-            ended_at__isnull=False
+            started_at__date__gte=week_start
         ).aggregate(total_time=Sum('duration_seconds'))
         total_time_this_week_seconds = week_sessions['total_time'] or 0
         
-        # Calculate streak history for last 30 days (for calendar display)
+        # --- Streak History (Last 30 days for calendar) ---
         streak_history = []
         for i in range(30):
-            date = today - timedelta(days=29-i)  # Start from 30 days ago
+            date = today - timedelta(days=29-i)
             has_reading = ReadingSession.objects.filter(
                 user=user,
                 started_at__date=date
@@ -246,20 +240,6 @@ def user_dashboard(request):
                 'date': date.strftime('%Y-%m-%d'),
                 'read': has_reading
             })
-        
-        # Calculate longest streak properly
-        longest_streak = 0
-        if sessions:
-            session_dates_sorted = sorted(list(set(s.started_at.date() for s in sessions)))
-            streak = 0
-            previous_date = None
-            for date in session_dates_sorted:
-                if previous_date and (date - previous_date).days == 1:
-                    streak += 1
-                else:
-                    streak = 1
-                longest_streak = max(longest_streak, streak)
-                previous_date = date
         
         stats = {
             'total_books_read': total_books_read,
@@ -277,7 +257,6 @@ def user_dashboard(request):
             'streak_history': streak_history,
         }
         
-        # Mapping logic for response data remains the same
         serializer_context = {'request': request}
         response_data = {
             'in_progress': ReadingProgressSerializer(in_progress, many=True, context=serializer_context).data,
@@ -528,11 +507,21 @@ def highlight_detail(request, highlight_id):
 @permission_classes([IsAuthenticated])
 def user_analytics(request):
     user = request.user
+    period = request.query_params.get('period', 'week')
     today = timezone.now().date()
     
-    # 1. Hourly Distribution (0-23)
+    # Determine date range
+    if period == 'month':
+        start_date = today - timedelta(days=29) # Last 30 days
+        days_range = 30
+    else: # week
+        start_date = today - timedelta(days=6) # Last 7 days
+        days_range = 7
+        
+    # 1. Hourly Distribution (based on period)
     hourly_stats = ReadingSession.objects.filter(
         user=user,
+        started_at__date__gte=start_date,
         started_at__isnull=False
     ).annotate(
         hour=ExtractHour('started_at')
@@ -543,75 +532,71 @@ def user_analytics(request):
     
     hourly_data = [{'hour': i, 'minutes': 0} for i in range(24)]
     for stat in hourly_stats:
-        if stat['hour'] is not None:
-            hourly_data[stat['hour']]['minutes'] = round(stat['total_minutes'] or 0)
-
-    # 2. Weekly Distribution (0=Sunday, 6=Saturday in Django ExtractWeekDay usually 1=Sunday, 7=Saturday, let's verify)
-    # Django ExtractWeekDay: 1 is Sunday, 7 is Saturday.
-    weekly_stats = ReadingSession.objects.filter(
+        hour = stat['hour']
+        if 0 <= hour < 24:
+            hourly_data[hour]['minutes'] = round(stat['total_minutes'] or 0)
+            
+    # 2. Daily Distribution (replaces weekly_distribution)
+    daily_stats = ReadingSession.objects.filter(
         user=user,
+        started_at__date__gte=start_date,
         started_at__isnull=False
     ).annotate(
-        weekday=ExtractWeekDay('started_at')
-    ).values('weekday').annotate(
+        date=F('started_at__date')
+    ).values('date').annotate(
         total_minutes=Sum('duration_seconds') / 60
-    ).order_by('weekday')
+    ).order_by('date')
     
-    # Map 1-7 to Mon-Sun or Sun-Sat. Let's use 0-6 for frontend where 0=Sun.
-    # Django: 1=Sun, 2=Mon, ..., 7=Sat.
-    weekly_data = [{'day': i, 'minutes': 0} for i in range(7)]
-    for stat in weekly_stats:
-        if stat['weekday'] is not None:
-            # Convert 1-based (Sun=1) to 0-based (Sun=0)
-            idx = stat['weekday'] - 1
-            weekly_data[idx]['minutes'] = round(stat['total_minutes'] or 0)
+    # Create map for easy lookup
+    stats_map = {stat['date']: stat['total_minutes'] for stat in daily_stats if stat['date']}
+    
+    daily_distribution = []
+    for i in range(days_range):
+        date = start_date + timedelta(days=i)
+        minutes = round(stats_map.get(date, 0))
+        daily_distribution.append({
+            'date': date.strftime('%Y-%m-%d'),
+            'day_name': date.strftime('%a'), # Mon, Tue
+            'full_day_name': date.strftime('%A'), # Monday, Tuesday
+            'minutes': minutes
+        })
 
-    # 3. Streak Stats
-    # Re-calculate streak logic or fetch from cache if we had one. 
-    # For now, we'll reuse the logic from dashboard or just return the current/longest.
-    # We'll calculate a simple history for the last 30 days for the "Streak" page.
+    # 3. Streak History (Last 30 days always, or match period?)
     streak_history = []
     for i in range(30):
-        date = today - timedelta(days=i)
-        has_read = ReadingSession.objects.filter(
+        date = today - timedelta(days=29-i)
+        has_reading = ReadingSession.objects.filter(
             user=user,
-            started_at__date=date,
-            duration_seconds__gt=300 # At least 5 mins to count? Or just any reading. Let's say > 0.
+            started_at__date=date
         ).exists()
         streak_history.append({
             'date': date.strftime('%Y-%m-%d'),
-            'read': has_read
+            'read': has_reading
         })
-    streak_history.reverse()
-
-    # 4. Completion Stats
+    
+    # 4. Completion Stats (General)
     total_books = ReadingProgress.objects.filter(user=user).count()
     completed_books = ReadingProgress.objects.filter(user=user, completed=True).count()
     completion_rate = (completed_books / total_books * 100) if total_books > 0 else 0
     
-    # Breakdown by category - Book has ManyToMany 'categories' field
-    # We'll get it from the first category of each completed book
+    # Categories
     categories_data = []
     try:
         category_counts = {}
-        completed_progress = ReadingProgress.objects.filter(user=user, completed=True).select_related('book')
-        for progress in completed_progress:
-            book_categories = progress.book.categories.all()
-            if book_categories.exists():
-                cat_name = book_categories.first().name
-            else:
-                cat_name = 'Uncategorized'
-            category_counts[cat_name] = category_counts.get(cat_name, 0) + 1
+        for progress in ReadingProgress.objects.filter(user=user, completed=True).select_related('book'):
+            for category in progress.book.categories.all():
+                name = category.name
+                category_counts[name] = category_counts.get(name, 0) + 1
         
-        categories_data = [{'name': name, 'value': count} for name, count in category_counts.items()]
+        categories_data = [{'name': k, 'value': v} for k, v in category_counts.items()]
         categories_data.sort(key=lambda x: x['value'], reverse=True)
     except Exception:
-        # If categories relation doesn't work, just return empty
         categories_data = []
 
     return Response({
         'hourly_distribution': hourly_data,
-        'weekly_distribution': weekly_data,
+        'daily_distribution': daily_distribution, # New field
+        'weekly_distribution': daily_distribution, # Backwards compatibility
         'streak_history': streak_history,
         'completion_stats': {
             'rate': round(completion_rate),

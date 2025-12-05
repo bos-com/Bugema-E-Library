@@ -38,20 +38,39 @@ def admin_analytics_overview(request):
         if request.user.role != 'ADMIN':
             return Response({'error': 'Admin access required'}, status=status.HTTP_403_FORBIDDEN)
         
-        # Get period parameter (today, week, month, year)
-        period = request.query_params.get('period', 'month')
-        start_date, end_date = get_period_date_range(period)
+        # Get period parameters for different sections
+        reads_period = request.query_params.get('reads_period', 'month')
+        liked_period = request.query_params.get('liked_period', 'month')
+        search_period = request.query_params.get('search_period', 'month')
+        viewed_period = request.query_params.get('viewed_period', 'month')
         
-        # Default time range (last 30 days for graphs)
-        graph_start_date = end_date - timedelta(days=30)
+        # --- Most Viewed Books (filtered by viewed_period) ---
+        viewed_start_date, _ = get_period_date_range(viewed_period)
         
-        # --- Most Read Books (using Django ORM syntax) ---
-        most_read_books = Book.objects.filter(
-            is_published=True
-        ).order_by('-view_count')[:10]
+        # We need to aggregate BookView counts per book for the period
+        most_viewed_books_qs = BookView.objects.filter(
+            viewed_at__gte=viewed_start_date
+        ).values('book').annotate(
+            period_view_count=Count('id')
+        ).order_by('-period_view_count')[:10]
         
-        # --- Most Liked Books (filtered by period) ---
-        liked_in_period = BookLike.objects.filter(created_at__gte=start_date)
+        most_viewed_books = []
+        for entry in most_viewed_books_qs:
+            try:
+                book = Book.objects.get(pk=entry['book'])
+                most_viewed_books.append({
+                    'id': str(book.pk),
+                    'title': book.title,
+                    'author': book.author.name if book.author else 'Unknown',
+                    'view_count': entry['period_view_count'],
+                    'like_count': book.like_count
+                })
+            except Book.DoesNotExist:
+                continue
+
+        # --- Most Liked Books (filtered by liked_period) ---
+        liked_start_date, _ = get_period_date_range(liked_period)
+        liked_in_period = BookLike.objects.filter(created_at__gte=liked_start_date)
         book_likes_count = {}
         for like in liked_in_period:
             book_id = like.book_id
@@ -71,7 +90,7 @@ def admin_analytics_overview(request):
             except Book.DoesNotExist:
                 continue
         
-        # --- Most Liked Categories (filtered by period) ---
+        # --- Most Liked Categories (filtered by liked_period) ---
         category_likes = {}
         for like in liked_in_period:
             for category in like.book.categories.all():
@@ -84,27 +103,52 @@ def admin_analytics_overview(request):
             reverse=True
         )[:10]
         
-        # --- Reads per day (last 30 days) ---
-        reads_per_day = []
-        for i in range(30):
-            date = graph_start_date + timedelta(days=i)
-            next_date = date + timedelta(days=1)
-            
-            # Count book opens using the new BookView model
-            book_opens = BookView.objects.filter(
-                viewed_at__gte=date,
-                viewed_at__lt=next_date
-            ).count()
-            
-            reads_per_day.append({
-                'date': date.strftime('%Y-%m-%d'),
-                'count': book_opens
-            })
+        # --- Reads per day (based on reads_period) ---
+        reads_start_date, reads_end_date = get_period_date_range(reads_period)
         
-        # --- Reads per hour (Peak usage times) ---
-        # Group by hour of day (0-23)
+        # If period is 'today', show hourly distribution for today
+        if reads_period == 'today':
+            reads_graph_data = []
+            for i in range(24):
+                hour_start = reads_end_date.replace(hour=i, minute=0, second=0, microsecond=0)
+                hour_end = hour_start + timedelta(hours=1)
+                
+                count = BookView.objects.filter(
+                    viewed_at__gte=hour_start,
+                    viewed_at__lt=hour_end
+                ).count()
+                
+                reads_graph_data.append({
+                    'date': f"{i}:00", # Label as hour
+                    'count': count
+                })
+        else:
+            # For week/month/year, show daily distribution
+            # Limit to last 30 days max for graph if period is huge, or show all days in period?
+            # User asked for "accurate" data.
+            days_to_show = (reads_end_date - reads_start_date).days + 1
+            if days_to_show > 365: days_to_show = 365 # Cap at 1 year
+            
+            reads_graph_data = []
+            for i in range(days_to_show):
+                date = reads_start_date + timedelta(days=i)
+                next_date = date + timedelta(days=1)
+                
+                book_opens = BookView.objects.filter(
+                    viewed_at__gte=date,
+                    viewed_at__lt=next_date
+                ).count()
+                
+                reads_graph_data.append({
+                    'date': date.strftime('%Y-%m-%d'),
+                    'count': book_opens
+                })
+        
+        # --- Reads per hour (Peak usage times - All time or filtered?) ---
+        # Usually peak usage is an aggregate pattern, so maybe keep it all time or use reads_period?
+        # Let's use reads_period to be consistent with "Reading Activity" context
         reads_per_hour_qs = BookView.objects.filter(
-            viewed_at__gte=graph_start_date
+            viewed_at__gte=reads_start_date
         ).annotate(
             hour=ExtractHour('viewed_at')
         ).values('hour').annotate(
@@ -118,19 +162,18 @@ def admin_analytics_overview(request):
         
         # --- Active users (users who viewed books in last 7 days) ---
         week_ago = timezone.now() - timedelta(days=7)
-        # Get distinct user IDs from BookView (the open-book event replacement)
         active_user_ids = BookView.objects.filter(
             viewed_at__gte=week_ago
         ).values_list('user_id', flat=True).distinct()
         
-        # --- Top search terms (filtered by period) ---
+        # --- Top search terms (filtered by search_period) ---
+        search_start_date, _ = get_period_date_range(search_period)
         search_events = SearchQuery.objects.filter(
-            searched_at__gte=start_date
+            searched_at__gte=search_start_date
         )
         
         search_terms = []
         for event in search_events:
-            # SearchQuery has a direct 'query' field, no longer a 'payload' dict
             query = event.query 
             if query:
                 search_terms.append(query.lower())
@@ -141,16 +184,14 @@ def admin_analytics_overview(request):
         total_books = Book.objects.filter(is_published=True).count()
         total_categories = Category.objects.count()
         
-        # Total users who have performed an action (viewed a book or searched)
+        # Total users
         all_view_users = BookView.objects.values_list('user_id', flat=True).distinct()
         all_search_users = SearchQuery.objects.filter(user__isnull=False).values_list('user_id', flat=True).distinct()
-        
-        # Combine and count distinct user IDs from both querysets
         total_user_ids = set(itertools.chain(all_view_users, all_search_users))
         total_users = len(total_user_ids)
         
-        # Total reads filtered by period
-        total_reads_period = BookView.objects.filter(viewed_at__gte=start_date).count()
+        # Total reads filtered by reads_period
+        total_reads_period = BookView.objects.filter(viewed_at__gte=reads_start_date).count()
         total_reads_all_time = BookView.objects.count()
         
         serializer = AdminAnalyticsSerializer({
@@ -161,23 +202,22 @@ def admin_analytics_overview(request):
                 'total_reads': total_reads_all_time,
                 'total_reads_period': total_reads_period,
                 'active_users_7d': len(active_user_ids),
-                'period': period
+                'period': reads_period # Main period
             },
             'most_read_books': [
                 {
-                    # Django IDs are int/UUID, we ensure they are string for JSON safety
-                    'id': str(book.pk), 
-                    'title': book.title,
-                    'author': book.author.name if book.author else 'Unknown',
-                    'view_count': book.view_count,
-                    'like_count': book.like_count
-                } for book in most_read_books
+                    'id': str(book['id']), 
+                    'title': book['title'],
+                    'author': book['author'],
+                    'view_count': book['view_count'],
+                    'like_count': book['like_count']
+                } for book in most_viewed_books
             ],
             'most_liked_books': most_liked_books,
             'most_liked_categories': [
                 {'name': name, 'likes': likes} for name, likes in most_liked_categories
             ],
-            'reads_per_day': reads_per_day,
+            'reads_per_day': reads_graph_data,
             'reads_per_hour': reads_per_hour,
             'top_search_terms': [
                 {'term': term, 'count': count} for term, count in top_search_terms
@@ -194,7 +234,6 @@ def admin_analytics_overview(request):
             {'error': 'Failed to fetch analytics', 'detail': str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
-
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
