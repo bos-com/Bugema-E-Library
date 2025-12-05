@@ -63,9 +63,8 @@ const AnalyticsStreakPage = () => {
 
     const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-    // Generate year options (current year and previous years)
-    const currentYear = new Date().getFullYear();
-    const yearOptions = [currentYear, currentYear - 1, currentYear - 2];
+    // Generate year options (2025-2030)
+    const yearOptions = [2025, 2026, 2027, 2028, 2029, 2030];
 
     return (
         <div className="space-y-8 animate-in">

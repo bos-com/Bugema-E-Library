@@ -6,9 +6,11 @@ export const getDashboard = async () => {
   return response.data;
 };
 
-export const getUserAnalytics = async () => {
-  const response = await api.get('/reading/analytics/');
-  return response.data;
+export const getUserAnalytics = async (period: 'week' | 'month' = 'week') => {
+  const { data } = await api.get('/reading/analytics/', {
+    params: { period }
+  });
+  return data;
 };
 
 export const getProgress = async (bookId: number | string) => {
