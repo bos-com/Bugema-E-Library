@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { getUserAnalytics } from '../../../lib/api/reading';
+import { AnalyticsData } from '../../../lib/types';
 import LoadingOverlay from '../../../components/feedback/LoadingOverlay';
 
 type TimeRange = 'week' | 'month';
@@ -17,7 +18,7 @@ const AnalyticsTimePage = () => {
     const navigate = useNavigate();
     const [timeRange, setTimeRange] = useState<TimeRange>('week');
 
-    const { data, isLoading } = useQuery({
+    const { data, isLoading } = useQuery<AnalyticsData>({
         queryKey: ['analytics', timeRange],
         queryFn: () => getUserAnalytics(timeRange),
         staleTime: 5 * 60 * 1000, // 5 minutes cache

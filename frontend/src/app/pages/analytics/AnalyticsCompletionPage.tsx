@@ -2,13 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { getUserAnalytics } from '../../../lib/api/reading';
+import { AnalyticsData } from '../../../lib/types';
 import LoadingOverlay from '../../../components/feedback/LoadingOverlay';
 
 const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
 
 const AnalyticsCompletionPage = () => {
     const navigate = useNavigate();
-    const { data, isLoading } = useQuery({
+    const { data, isLoading } = useQuery<AnalyticsData>({
         queryKey: ['analytics'],
         queryFn: () => getUserAnalytics(),
         staleTime: 5 * 60 * 1000,
