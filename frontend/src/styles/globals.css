@@ -184,3 +184,141 @@ a {
     transform: translateY(0);
   }
 }
+
+/* Mobile Responsive Utilities */
+@media (max-width: 768px) {
+  /* Touch-friendly tap targets */
+  .btn-primary,
+  .btn-secondary,
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Scrollable tables on mobile */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  /* Chart containers */
+  .chart-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Stack form elements */
+  .form-row {
+    flex-direction: column !important;
+  }
+
+  /* Full width inputs on mobile */
+  input, select, textarea {
+    width: 100%;
+  }
+
+  /* Reduce padding on mobile */
+  .card, .card-gradient {
+    @apply p-4;
+  }
+
+  /* Smaller page title on mobile */
+  .page-title {
+    @apply text-2xl;
+  }
+
+  /* Hide large elements on mobile */
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+/* Show only on mobile */
+@media (min-width: 769px) {
+  .show-mobile-only {
+    display: none !important;
+  }
+}
+
+/* Responsive chart sizing */
+.recharts-responsive-container {
+  min-height: 200px;
+}
+
+@media (min-width: 768px) {
+  .recharts-responsive-container {
+    min-height: 300px;
+  }
+}
+
+/* Scrollbar styling for mobile */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+  }
+}
+
+/* Responsive grid helpers */
+.responsive-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .responsive-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .responsive-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Safe area padding for notched phones */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+/* Prevent text selection on interactive elements */
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Smooth animations for mobile */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

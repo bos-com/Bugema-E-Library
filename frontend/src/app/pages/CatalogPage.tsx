@@ -4,6 +4,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { getBooks, toggleBookmark, toggleLike } from '../../lib/api/catalog';
 import LoadingOverlay from '../../components/feedback/LoadingOverlay';
 import { useAuthStore } from '../../lib/store/auth';
+import { useSubscription } from '../../lib/hooks/useSubscription';
+import SubscriptionPaywall from '../../components/subscription/SubscriptionPaywall';
 import BookCard from '../../components/catalog/BookCard';
 import type { BookSummary, PaginatedResponse } from '../../lib/types';
 
@@ -25,6 +27,9 @@ const CatalogPage = () => {
   });
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  const { needsSubscription, isLoading: subscriptionLoading } = useSubscription();
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallAction, setPaywallAction] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['books', { search, page, categoryId }],
@@ -95,12 +100,22 @@ const CatalogPage = () => {
   });
 
   const handleLike = useCallback((id: number) => {
+    if (!subscriptionLoading && needsSubscription) {
+      setPaywallAction('like books');
+      setShowPaywall(true);
+      return;
+    }
     likeMutation.mutate(id);
-  }, [likeMutation]);
+  }, [likeMutation, needsSubscription, subscriptionLoading]);
 
   const handleBookmark = useCallback((id: number) => {
+    if (!subscriptionLoading && needsSubscription) {
+      setPaywallAction('bookmark books');
+      setShowPaywall(true);
+      return;
+    }
     bookmarkMutation.mutate(id);
-  }, [bookmarkMutation]);
+  }, [bookmarkMutation, needsSubscription, subscriptionLoading]);
 
   const totalPages = useMemo(() => {
     if (!data?.count) return 1;
@@ -260,6 +275,13 @@ const CatalogPage = () => {
           </button>
         </div>
       </div>
+
+      {/* Subscription Paywall Modal */}
+      <SubscriptionPaywall
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        actionBlocked={paywallAction}
+      />
     </div>
   );
 };

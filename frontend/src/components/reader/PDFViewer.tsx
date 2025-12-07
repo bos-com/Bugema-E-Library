@@ -44,13 +44,17 @@ const PDFViewer = ({
 }: PDFViewerProps) => {
     const [numPages, setNumPages] = useState<number>(0);
     const [currentPage, setCurrentPage] = useState<number>(initialPage);
-    const [scale, setScale] = useState<number>(1.5); // Increased from 1.2
-    const [showPreview, setShowPreview] = useState(true);
+    const [scale, setScale] = useState<number>(1.0);
+    const [showPreview, setShowPreview] = useState(false); // Hidden by default on mobile
     const [selectedColor, setSelectedColor] = useState('yellow');
     const [selectedText, setSelectedText] = useState<string>('');
     const [showHighlightMenu, setShowHighlightMenu] = useState(false);
     const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
     const [annotationType, setAnnotationType] = useState<'highlight' | 'underline'>('highlight');
+    const [isMobile, setIsMobile] = useState(false);
+    const [showMobileToolbar, setShowMobileToolbar] = useState(true);
+    const [pdfError, setPdfError] = useState<string | null>(null);
+    const [retryCount, setRetryCount] = useState(0);
 
     const [activeHighlightId, setActiveHighlightId] = useState<string | null>(null);
 
@@ -58,14 +62,49 @@ const PDFViewer = ({
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
+    // Detect mobile device and set appropriate defaults
+    useEffect(() => {
+        const checkMobile = () => {
+            const mobile = window.innerWidth < 768;
+            setIsMobile(mobile);
+            // Auto-adjust scale for mobile
+            if (mobile) {
+                // Calculate scale to fit screen width with some padding
+                const containerWidth = window.innerWidth - 32; // 16px padding each side
+                const pdfDefaultWidth = 612; // Standard PDF page width in points
+                const newScale = Math.min(containerWidth / pdfDefaultWidth, 1.2);
+                setScale(Math.max(0.5, newScale));
+                setShowPreview(false);
+            } else {
+                setScale(1.5);
+                setShowPreview(true);
+            }
+        };
+
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     useEffect(() => {
         setCurrentPage(initialPage);
     }, [initialPage]);
 
     function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
         setNumPages(numPages);
+        setPdfError(null);
         if (onLoadSuccess) onLoadSuccess(numPages);
     }
+
+    function onDocumentLoadError(error: Error) {
+        console.error('PDF load error:', error);
+        setPdfError(error.message || 'Failed to load PDF');
+    }
+
+    const handleRetry = () => {
+        setPdfError(null);
+        setRetryCount(prev => prev + 1);
+    };
 
     // Track scroll position to update current page
     const handleScroll = useCallback(() => {
@@ -128,7 +167,7 @@ const PDFViewer = ({
             y: rect.top - 50
         });
         setShowHighlightMenu(true);
-        setActiveHighlightId(null); // Close any open delete menus
+        setActiveHighlightId(null);
     };
 
     const createHighlight = (type: 'highlight' | 'underline') => {
@@ -140,7 +179,6 @@ const PDFViewer = ({
         const range = selection.getRangeAt(0);
         const clientRects = Array.from(range.getClientRects());
 
-        // Get the page element to calculate relative coordinates
         const pageElement = pageRefs.current.get(currentPage);
         if (!pageElement) return;
 
@@ -180,213 +218,294 @@ const PDFViewer = ({
         }
     };
 
+    // Mobile page jump
+    const handlePageJump = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const page = parseInt(e.target.value, 10);
+        if (page >= 1 && page <= numPages) {
+            scrollToPage(page);
+        }
+    };
+
     return (
-        <div className="flex gap-4 h-full" ref={containerRef}>
+        <div className={`flex ${isMobile ? 'flex-col' : 'gap-4'} h-full`} ref={containerRef}>
             {/* Main Reader Area */}
             <div className="flex-1 flex flex-col">
-                {/* Toolbar */}
-                <div className="mb-4 flex items-center justify-between gap-4 rounded-lg bg-white p-3 shadow-lg dark:bg-slate-800 flex-wrap">
-                    <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={() => setScale(s => Math.max(0.5, s - 0.1))}
-                            className="rounded p-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
-                            title="Zoom Out"
-                        >
-                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                            </svg>
-                        </button>
-
-                        <span className="min-w-[60px] text-center text-sm font-medium text-slate-600 dark:text-slate-400">
-                            {Math.round(scale * 100)}%
-                        </span>
-
-                        <button
-                            type="button"
-                            onClick={() => setScale(s => Math.min(2.5, s + 0.1))}
-                            className="rounded p-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
-                            title="Zoom In"
-                        >
-                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                        </button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-slate-900 dark:text-white">
-                            Page {currentPage} of {numPages}
-                        </span>
-                    </div>
-
-                    {/* Annotation Type Selector */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-600 dark:text-slate-400">Type:</span>
-                        {ANNOTATION_TYPES.map(type => (
-                            <button
-                                key={type.value}
-                                onClick={() => setAnnotationType(type.value)}
-                                className={`px-2 py-1 rounded text-xs font-medium transition ${annotationType === type.value
-                                    ? 'bg-brand-500 text-white'
-                                    : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300'
-                                    }`}
-                                title={type.name}
-                            >
-                                {type.icon}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Highlight Color Selector */}
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-600 dark:text-slate-400">Color:</span>
-                        {HIGHLIGHT_COLORS.map(color => (
-                            <button
-                                key={color.value}
-                                onClick={() => setSelectedColor(color.value)}
-                                className={`w-6 h-6 rounded border-2 transition ${selectedColor === color.value
-                                    ? 'border-slate-900 dark:border-white scale-110'
-                                    : 'border-slate-300 dark:border-slate-600'
-                                    }`}
-                                style={{ backgroundColor: color.bg }}
-                                title={color.name}
-                            />
-                        ))}
-                    </div>
-
+                {/* Mobile Toolbar Toggle */}
+                {isMobile && (
                     <button
-                        type="button"
-                        onClick={() => setShowPreview(!showPreview)}
-                        className="rounded p-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
-                        title={showPreview ? 'Hide Preview' : 'Show Preview'}
+                        onClick={() => setShowMobileToolbar(!showMobileToolbar)}
+                        className="mb-2 flex items-center justify-center gap-2 rounded-lg bg-slate-100 p-2 text-sm font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                     >
-                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        {showMobileToolbar ? 'Hide Controls' : 'Show Controls'}
+                        <svg className={`h-4 w-4 transition-transform ${showMobileToolbar ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
-                </div>
+                )}
 
-                {/* Scrollable PDF Container - Increased height */}
-                <div
-                    ref={scrollContainerRef}
-                    className="flex-1 overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200 bg-slate-100 p-6 dark:border-slate-700 dark:bg-slate-900"
-                    style={{ maxHeight: 'calc(100vh - 120px)', minHeight: '750px' }}
-                    onMouseUp={handleTextSelection}
-                >
-                    <div className="flex flex-col items-center gap-8">
-                        <Document
-                            file={fileUrl}
-                            onLoadSuccess={onDocumentLoadSuccess}
-                            loading={
-                                <div className="flex h-96 w-full items-center justify-center">
-                                    <div className="h-12 w-12 animate-spin rounded-full border-4 border-brand-500 border-t-transparent"></div>
+                {/* Toolbar - Collapsible on mobile */}
+                {(!isMobile || showMobileToolbar) && (
+                    <div className={`mb-4 flex items-center justify-between gap-2 rounded-lg bg-white p-2 shadow-lg dark:bg-slate-800 ${isMobile ? 'flex-wrap' : 'gap-4 p-3'}`}>
+                        {/* Zoom Controls */}
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setScale(s => Math.max(0.5, s - 0.1))}
+                                className="rounded p-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                                title="Zoom Out"
+                            >
+                                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                                </svg>
+                            </button>
+
+                            <span className="min-w-[50px] text-center text-sm font-medium text-slate-600 dark:text-slate-400">
+                                {Math.round(scale * 100)}%
+                            </span>
+
+                            <button
+                                type="button"
+                                onClick={() => setScale(s => Math.min(2.5, s + 0.1))}
+                                className="rounded p-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                                title="Zoom In"
+                            >
+                                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Page Navigation - Improved for mobile */}
+                        <div className="flex items-center gap-2">
+                            {isMobile ? (
+                                <div className="flex items-center gap-1">
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={numPages}
+                                        value={currentPage}
+                                        onChange={handlePageJump}
+                                        className="w-12 rounded border border-slate-300 p-1 text-center text-sm dark:border-slate-600 dark:bg-slate-700"
+                                    />
+                                    <span className="text-sm text-slate-600 dark:text-slate-400">/ {numPages}</span>
                                 </div>
-                            }
-                            error={
-                                <div className="flex h-96 w-full flex-col items-center justify-center text-rose-500">
-                                    <svg className="h-12 w-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                    </svg>
-                                    <p>Failed to load PDF</p>
+                            ) : (
+                                <span className="text-sm font-medium text-slate-900 dark:text-white">
+                                    Page {currentPage} of {numPages}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Highlight Controls - Hidden on mobile in compact mode */}
+                        {!isMobile && (
+                            <>
+                                {/* Annotation Type Selector */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-600 dark:text-slate-400">Type:</span>
+                                    {ANNOTATION_TYPES.map(type => (
+                                        <button
+                                            key={type.value}
+                                            onClick={() => setAnnotationType(type.value)}
+                                            className={`px-2 py-1 rounded text-xs font-medium transition ${annotationType === type.value
+                                                ? 'bg-brand-500 text-white'
+                                                : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300'
+                                                }`}
+                                            title={type.name}
+                                        >
+                                            {type.icon}
+                                        </button>
+                                    ))}
                                 </div>
-                            }
-                        >
-                            {Array.from(new Array(numPages), (el, index) => {
-                                const pageNum = index + 1;
-                                return (
-                                    <div
-                                        key={`page_${pageNum}`}
-                                        ref={(el) => {
-                                            if (el) pageRefs.current.set(pageNum, el);
-                                        }}
-                                        className="relative mb-6 shadow-2xl"
-                                    >
-                                        {/* Watermark removed for better reading experience */}
-                                        <Page
-                                            pageNumber={pageNum}
-                                            scale={scale}
-                                            renderTextLayer={true}
-                                            renderAnnotationLayer={true}
-                                            className="bg-white"
+
+                                {/* Highlight Color Selector */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-600 dark:text-slate-400">Color:</span>
+                                    {HIGHLIGHT_COLORS.map(color => (
+                                        <button
+                                            key={color.value}
+                                            onClick={() => setSelectedColor(color.value)}
+                                            className={`w-6 h-6 rounded border-2 transition ${selectedColor === color.value
+                                                ? 'border-slate-900 dark:border-white scale-110'
+                                                : 'border-slate-300 dark:border-slate-600'
+                                                }`}
+                                            style={{ backgroundColor: color.bg }}
+                                            title={color.name}
                                         />
+                                    ))}
+                                </div>
+                            </>
+                        )}
 
-                                        {/* Render highlights and underlines for this page */}
-                                        {highlights
-                                            .filter(h => h.page_number === pageNum)
-                                            .map(highlight => {
-                                                const isUnderline = highlight.color.includes('-underline');
-                                                const baseColor = highlight.color.replace('-underline', '');
-                                                const colorConfig = HIGHLIGHT_COLORS.find(c => c.value === baseColor);
+                        {/* Preview Toggle - Desktop only */}
+                        {!isMobile && (
+                            <button
+                                type="button"
+                                onClick={() => setShowPreview(!showPreview)}
+                                className="rounded p-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                                title={showPreview ? 'Hide Preview' : 'Show Preview'}
+                            >
+                                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
+                )}
 
-                                                // Handle legacy highlights (no rects) or new ones
-                                                const rects = highlight.position_data?.rects || [{ x: 0, y: 0, width: 1, height: 1 }];
+                {/* Error State with Retry */}
+                {pdfError && (
+                    <div className="flex flex-col items-center justify-center gap-4 rounded-lg bg-rose-50 p-6 text-center dark:bg-rose-500/10">
+                        <svg className="h-12 w-12 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div>
+                            <p className="font-semibold text-rose-700 dark:text-rose-400">Failed to load PDF</p>
+                            <p className="text-sm text-rose-600 dark:text-rose-300">{pdfError}</p>
+                        </div>
+                        <button
+                            onClick={handleRetry}
+                            className="rounded-lg bg-rose-500 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600"
+                        >
+                            Try Again
+                        </button>
+                    </div>
+                )}
 
-                                                return (
-                                                    <div key={highlight.id} className="absolute inset-0 pointer-events-none">
-                                                        {rects.map((rect, i) => (
-                                                            <div
-                                                                key={i}
-                                                                className="absolute cursor-pointer pointer-events-auto hover:opacity-80 transition-opacity"
-                                                                style={isUnderline ? {
-                                                                    left: `${rect.x * 100}%`,
-                                                                    top: `${rect.y * 100}%`,
-                                                                    width: `${rect.width * 100}%`,
-                                                                    height: `${rect.height * 100}%`,
-                                                                    borderBottom: `3px solid ${colorConfig?.bg.replace('0.3', '0.8') || 'rgba(255, 255, 0, 0.8)'}`,
-                                                                } : {
-                                                                    left: `${rect.x * 100}%`,
-                                                                    top: `${rect.y * 100}%`,
-                                                                    width: `${rect.width * 100}%`,
-                                                                    height: `${rect.height * 100}%`,
-                                                                    backgroundColor: colorConfig?.bg || 'rgba(255, 255, 0, 0.3)'
-                                                                }}
-                                                                title={highlight.text_content}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setActiveHighlightId(activeHighlightId === highlight.id ? null : highlight.id);
-                                                                }}
-                                                            />
-                                                        ))}
+                {/* Scrollable PDF Container - Mobile optimized */}
+                {!pdfError && (
+                    <div
+                        ref={scrollContainerRef}
+                        className={`flex-1 overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900 ${isMobile ? 'p-2' : 'p-6'}`}
+                        style={{
+                            maxHeight: isMobile ? 'calc(100vh - 180px)' : 'calc(100vh - 120px)',
+                            minHeight: isMobile ? '400px' : '750px',
+                            WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
+                        }}
+                        onMouseUp={handleTextSelection}
+                        onTouchEnd={handleTextSelection}
+                    >
+                        <div className="flex flex-col items-center gap-4">
+                            <Document
+                                key={retryCount} // Force remount on retry
+                                file={fileUrl}
+                                onLoadSuccess={onDocumentLoadSuccess}
+                                onLoadError={onDocumentLoadError}
+                                loading={
+                                    <div className="flex h-96 w-full flex-col items-center justify-center gap-3">
+                                        <div className="h-12 w-12 animate-spin rounded-full border-4 border-brand-500 border-t-transparent"></div>
+                                        <p className="text-sm text-slate-600 dark:text-slate-400">Loading book...</p>
+                                    </div>
+                                }
+                                error={
+                                    <div className="flex h-96 w-full flex-col items-center justify-center text-rose-500">
+                                        <svg className="h-12 w-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                        <p>Failed to load PDF</p>
+                                        <button
+                                            onClick={handleRetry}
+                                            className="mt-3 rounded-lg bg-rose-500 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600"
+                                        >
+                                            Try Again
+                                        </button>
+                                    </div>
+                                }
+                            >
+                                {Array.from(new Array(numPages), (el, index) => {
+                                    const pageNum = index + 1;
+                                    return (
+                                        <div
+                                            key={`page_${pageNum}`}
+                                            ref={(el) => {
+                                                if (el) pageRefs.current.set(pageNum, el);
+                                            }}
+                                            className={`relative ${isMobile ? 'mb-2' : 'mb-6'} shadow-2xl`}
+                                        >
+                                            <Page
+                                                pageNumber={pageNum}
+                                                scale={scale}
+                                                renderTextLayer={!isMobile} // Disable text layer on mobile for performance
+                                                renderAnnotationLayer={!isMobile}
+                                                className="bg-white"
+                                                width={isMobile ? window.innerWidth - 40 : undefined}
+                                            />
 
-                                                        {/* Delete Menu */}
-                                                        {activeHighlightId === highlight.id && (
-                                                            <div
-                                                                className="absolute z-50 bg-white rounded shadow-lg border border-slate-200 p-1 pointer-events-auto"
-                                                                style={{
-                                                                    left: `${rects[0].x * 100}%`,
-                                                                    top: `${(rects[0].y * 100) - 5}%`, // Position slightly above
-                                                                    transform: 'translateY(-100%)'
-                                                                }}
-                                                            >
-                                                                <button
+                                            {/* Render highlights for this page */}
+                                            {!isMobile && highlights
+                                                .filter(h => h.page_number === pageNum)
+                                                .map(highlight => {
+                                                    const isUnderline = highlight.color.includes('-underline');
+                                                    const baseColor = highlight.color.replace('-underline', '');
+                                                    const colorConfig = HIGHLIGHT_COLORS.find(c => c.value === baseColor);
+
+                                                    const rects = highlight.position_data?.rects || [{ x: 0, y: 0, width: 1, height: 1 }];
+
+                                                    return (
+                                                        <div key={highlight.id} className="absolute inset-0 pointer-events-none">
+                                                            {rects.map((rect, i) => (
+                                                                <div
+                                                                    key={i}
+                                                                    className="absolute cursor-pointer pointer-events-auto hover:opacity-80 transition-opacity"
+                                                                    style={isUnderline ? {
+                                                                        left: `${rect.x * 100}%`,
+                                                                        top: `${rect.y * 100}%`,
+                                                                        width: `${rect.width * 100}%`,
+                                                                        height: `${rect.height * 100}%`,
+                                                                        borderBottom: `3px solid ${colorConfig?.bg.replace('0.3', '0.8') || 'rgba(255, 255, 0, 0.8)'}`,
+                                                                    } : {
+                                                                        left: `${rect.x * 100}%`,
+                                                                        top: `${rect.y * 100}%`,
+                                                                        width: `${rect.width * 100}%`,
+                                                                        height: `${rect.height * 100}%`,
+                                                                        backgroundColor: colorConfig?.bg || 'rgba(255, 255, 0, 0.3)'
+                                                                    }}
+                                                                    title={highlight.text_content}
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
-                                                                        handleDeleteHighlight(highlight.id);
+                                                                        setActiveHighlightId(activeHighlightId === highlight.id ? null : highlight.id);
                                                                     }}
-                                                                    className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded"
+                                                                />
+                                                            ))}
+
+                                                            {/* Delete Menu */}
+                                                            {activeHighlightId === highlight.id && (
+                                                                <div
+                                                                    className="absolute z-50 bg-white rounded shadow-lg border border-slate-200 p-1 pointer-events-auto"
+                                                                    style={{
+                                                                        left: `${rects[0].x * 100}%`,
+                                                                        top: `${(rects[0].y * 100) - 5}%`,
+                                                                        transform: 'translateY(-100%)'
+                                                                    }}
                                                                 >
-                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                    </svg>
-                                                                    Remove
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })
-                                        }
-                                    </div>
-                                );
-                            })}
-                        </Document>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleDeleteHighlight(highlight.id);
+                                                                        }}
+                                                                        className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded"
+                                                                    >
+                                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                                        </svg>
+                                                                        Remove
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })
+                                            }
+                                        </div>
+                                    );
+                                })}
+                            </Document>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
-            {/* Page Preview Sidebar */}
-            {showPreview && (
+            {/* Page Preview Sidebar - Desktop only */}
+            {showPreview && !isMobile && (
                 <div className="w-[280px] flex flex-col gap-3 rounded-lg bg-white p-4 shadow-lg dark:bg-slate-800 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 120px)' }}>
                     <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">Page Navigation</h3>
 
@@ -434,7 +553,7 @@ const PDFViewer = ({
             )}
 
             {/* Highlight/Underline Menu */}
-            {showHighlightMenu && (
+            {showHighlightMenu && !isMobile && (
                 <div
                     className="fixed z-50 rounded-lg bg-white p-2 shadow-xl dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                     style={{
