@@ -11,8 +11,15 @@ const PayPalPaymentPage = () => {
     const [email, setEmail] = useState('');
     const [step, setStep] = useState<'input' | 'processing' | 'success'>('input');
 
-    const { data: plans } = useQuery({ queryKey: ['subscription-plans'], queryFn: getPlans });
-    const plan = plans?.find(p => p.id === Number(planId));
+    // Cache plans data
+    const { data: plans } = useQuery({ 
+        queryKey: ['subscription-plans'], 
+        queryFn: getPlans,
+        staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+        gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    });
+    const plansArray = Array.isArray(plans) ? plans : [];
+    const plan = plansArray.find(p => p.id === Number(planId));
 
     const mutation = useMutation({
         mutationFn: createSubscription,

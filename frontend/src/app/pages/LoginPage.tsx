@@ -53,14 +53,14 @@ const LoginPage = () => {
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
           <label className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
-            Email / Registration No. / Staff ID
+            Email
           </label>
           <input
             type="text"
             {...register('email')}
             disabled={mutation.isPending}
             className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-white disabled:opacity-50"
-            placeholder="e.g. 19/KG/283 or john@example.com"
+            placeholder="e.g. 22/BCC/BU/R/0000, STF/BU/000, or john@example.com"
           />
           {errors.email && <p className="text-xs text-red-400">{errors.email.message}</p>}
         </div>

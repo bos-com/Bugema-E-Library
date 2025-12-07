@@ -19,6 +19,19 @@ const AdminLayout = () => {
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950">
       <aside className={`hidden flex-col border-r border-slate-200 bg-white p-4 transition-all duration-300 dark:border-white/5 dark:bg-slate-900/60 lg:flex ${isCollapsed ? 'w-20' : 'w-64'}`}>
+        {/* Collapse button at top */}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="mb-4 flex items-center justify-center rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5"
+        >
+          {isCollapsed ? <ChevronRight className="h-5 w-5" /> : (
+            <div className="flex items-center gap-2">
+              <ChevronLeft className="h-5 w-5" />
+              <span className="text-sm font-medium">Collapse</span>
+            </div>
+          )}
+        </button>
+
         <div className={`flex ${isCollapsed ? 'justify-center' : ''}`}>
           {!isCollapsed ? (
             <div>
@@ -38,7 +51,7 @@ const AdminLayout = () => {
               to={link.to}
               className={({ isActive }) =>
                 `flex items-center rounded-lg py-2 font-medium transition ${isActive
-                  ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/20 dark:text-white'
+                  ? 'bg-blue-500 text-white dark:bg-blue-600'
                   : 'hover:bg-slate-100 dark:hover:bg-white/5'
                 } ${isCollapsed ? 'justify-center px-0' : 'px-4 gap-3'}`
               }
@@ -49,18 +62,6 @@ const AdminLayout = () => {
             </NavLink>
           ))}
         </nav>
-
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="mt-auto flex items-center justify-center rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5"
-        >
-          {isCollapsed ? <ChevronRight className="h-5 w-5" /> : (
-            <div className="flex items-center gap-2">
-              <ChevronLeft className="h-5 w-5" />
-              <span className="text-sm font-medium">Collapse</span>
-            </div>
-          )}
-        </button>
       </aside>
 
       {/* Main Content */}
