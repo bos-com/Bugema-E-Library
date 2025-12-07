@@ -96,11 +96,11 @@ const AdminUsersPage = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${user.is_online
-                                            ? 'bg-green-500/20 text-green-300'
-                                            : 'bg-gray-500/20 text-gray-400'
+                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${user.is_online
+                                            ? 'bg-green-500 text-white'
+                                            : 'bg-gray-500 text-white'
                                             }`}>
-                                            <span className={`mr-1.5 h-2 w-2 rounded-full ${user.is_online ? 'bg-green-500' : 'bg-gray-500'}`}></span>
+                                            <span className={`mr-1.5 h-2 w-2 rounded-full bg-white`}></span>
                                             {user.is_online ? 'Online' : 'Offline'}
                                         </span>
                                     </td>
@@ -109,9 +109,9 @@ const AdminUsersPage = () => {
                                             value={user.role}
                                             onChange={(e) => handleRoleChange(user.id, e.target.value as 'ADMIN' | 'USER')}
                                             disabled={user.id === currentUser?.id}
-                                            className={`rounded-full px-3 py-1 text-xs font-semibold leading-5 border-0 cursor-pointer ${user.role === 'ADMIN'
-                                                ? 'bg-purple-500/20 text-purple-300'
-                                                : 'bg-orange-500/20 text-orange-300'
+                                            className={`rounded-full px-3 py-1 text-xs font-bold leading-5 border-0 cursor-pointer transition-colors duration-200 ${user.role === 'ADMIN'
+                                                ? 'bg-purple-600 text-white hover:bg-purple-700'
+                                                : 'bg-orange-500 text-white hover:bg-orange-600'
                                                 } disabled:opacity-50 disabled:cursor-not-allowed`}
                                         >
                                             <option value="ADMIN">ADMIN</option>
