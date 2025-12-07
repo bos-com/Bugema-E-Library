@@ -8,7 +8,7 @@ export const getDashboard = async (period: string = 'week') => {
   return response.data;
 };
 
-export const getUserAnalytics = async (period: 'week' | 'month' = 'week') => {
+export const getUserAnalytics = async (period: 'week' | 'month' | 'year' = 'week') => {
   const { data } = await api.get<AnalyticsData>('/reading/analytics/', {
     params: { period }
   });

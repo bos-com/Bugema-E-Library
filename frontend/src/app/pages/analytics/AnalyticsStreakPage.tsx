@@ -12,7 +12,7 @@ const AnalyticsStreakPage = () => {
 
     const { data: dashboardData, isLoading } = useQuery<DashboardData>({
         queryKey: ['dashboard'],
-        queryFn: getDashboard,
+        queryFn: () => getDashboard(),
         staleTime: 2 * 60 * 1000,
     });
 
