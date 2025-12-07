@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { getDashboard } from '../../lib/api/reading';
 import LoadingOverlay from '../../components/feedback/LoadingOverlay';
 
+import { DashboardData } from '../../lib/types';
+
 const CompletedBooksPage = () => {
     const navigate = useNavigate();
-    const { data, isLoading } = useQuery({
+    const { data, isLoading } = useQuery<DashboardData>({
         queryKey: ['dashboard'],
-        queryFn: getDashboard,
+        queryFn: () => getDashboard(),
         staleTime: 2 * 60 * 1000,
     });
 
