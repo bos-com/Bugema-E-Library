@@ -6,7 +6,7 @@ import { getUserAnalytics } from '../../../lib/api/reading';
 import { AnalyticsData } from '../../../lib/types';
 import LoadingOverlay from '../../../components/feedback/LoadingOverlay';
 
-type TimeRange = 'week' | 'month';
+type TimeRange = 'week' | 'month' | 'year';
 
 // Color palette for bars
 const BAR_COLORS = [
@@ -126,6 +126,15 @@ const AnalyticsTimePage = () => {
                             }`}
                     >
                         This Month
+                    </button>
+                    <button
+                        onClick={() => setTimeRange('year')}
+                        className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${timeRange === 'year'
+                            ? 'bg-brand-500 text-white shadow-md'
+                            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5'
+                            }`}
+                    >
+                        This Year
                     </button>
                 </div>
             </div>

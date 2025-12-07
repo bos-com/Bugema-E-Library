@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { getDashboard } from '../../lib/api/reading';
@@ -6,9 +7,11 @@ import StatCard from '../../components/cards/StatCard';
 
 const DashboardPage = () => {
   const navigate = useNavigate();
+  const [period, setPeriod] = useState('week');
+
   const { data, isLoading } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: getDashboard,
+    queryKey: ['dashboard', period],
+    queryFn: () => getDashboard(period),
     staleTime: 2 * 60 * 1000, // 2 minutes cache
   });
 
@@ -31,18 +34,40 @@ const DashboardPage = () => {
   const totalBooks = (data.completed?.length || 0) + (data.in_progress?.length || 0);
   const completionRate = totalBooks > 0 ? Math.round(((data.completed?.length || 0) / totalBooks) * 100) : 0;
 
+  const periodLabel = {
+    today: 'Today',
+    week: 'This Week',
+    month: 'This Month',
+    year: 'This Year',
+    all: 'All Time'
+  }[period] || 'This Week';
+
   return (
     <div className="space-y-8 animate-in">
       {/* Page Header */}
-      <div className="page-header">
-        <p className="text-xs font-semibold uppercase tracking-[0.4em] text-brand-600 dark:text-brand-400">
-          Personal Dashboard
-        </p>
-        <h1 className="page-title">Reading Insights</h1>
-        <p className="page-subtitle">Track your progress and discover your reading patterns</p>
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div className="page-header m-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.4em] text-brand-600 dark:text-brand-400">
+            Personal Dashboard
+          </p>
+          <h1 className="page-title">Reading Insights</h1>
+          <p className="page-subtitle">Track your progress and discover your reading patterns</p>
+        </div>
+
+        <select
+          value={period}
+          onChange={(e) => setPeriod(e.target.value)}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 dark:border-white/10 dark:bg-slate-800 dark:text-white min-w-[140px]"
+        >
+          <option value="today">Today</option>
+          <option value="week">This Week</option>
+          <option value="month">This Month</option>
+          <option value="year">This Year</option>
+          <option value="all">All Time</option>
+        </select>
       </div>
 
-      {/* Statistics Grid - 5 cards, no Avg Session */}
+      {/* Statistics Grid - 5 cards */}
       <section className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
         <div onClick={() => navigate('/books/completed')} className="cursor-pointer transition-transform hover:scale-105">
           <StatCard
@@ -54,21 +79,21 @@ const DashboardPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
             }
-            hint="View all"
+            hint={periodLabel}
           />
         </div>
 
-        <div onClick={() => navigate('/analytics/time')} className="cursor-pointer transition-transform hover:scale-105">
+        <div onClick={() => navigate('/analytics/pages')} className="cursor-pointer transition-transform hover:scale-105">
           <StatCard
             variant="emerald"
-            label="Time This Week"
-            value={`${Math.round((data?.stats.total_time_this_week_seconds || 0) / 60)}m`}
+            label="Pages Read"
+            value={`${data?.stats.total_pages_read || 0}`}
             icon={
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
             }
-            hint="This week"
+            hint={periodLabel}
           />
         </div>
 
@@ -76,13 +101,13 @@ const DashboardPage = () => {
           <StatCard
             variant="violet"
             label="Time Reading"
-            value={`${Math.round((data?.stats.total_time_seconds || 0) / 3600)}h`}
+            value={`${((data?.stats.total_time_seconds || 0) / 3600).toFixed(1)}h`}
             icon={
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             }
-            hint="View analytics"
+            hint={periodLabel}
           />
         </div>
 

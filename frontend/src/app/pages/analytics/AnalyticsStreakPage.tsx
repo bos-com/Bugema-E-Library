@@ -153,15 +153,15 @@ const AnalyticsStreakPage = () => {
                 </div>
 
                 {/* Calendar grid */}
-                <div className="grid grid-cols-7 gap-2">
+                <div className="grid grid-cols-7 gap-1">
                     {calendarData.map((item, index) => (
                         <div
                             key={index}
-                            className={`aspect-square flex items-center justify-center rounded-full text-sm font-medium transition-all
+                            className={`h-8 w-8 mx-auto flex items-center justify-center rounded-full text-xs font-medium transition-all
                                 ${!item.date
                                     ? ''
                                     : item.read
-                                        ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
+                                        ? 'bg-amber-500 text-white shadow-sm shadow-amber-500/30'
                                         : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                                 }`}
                         >

@@ -11,6 +11,7 @@ import DashboardPage from '../app/pages/DashboardPage';
 import AnalyticsPage from '../app/pages/AnalyticsPage';
 import AnalyticsTimePage from '../app/pages/analytics/AnalyticsTimePage';
 import AnalyticsStreakPage from '../app/pages/analytics/AnalyticsStreakPage';
+import AnalyticsPagesPage from '../app/pages/analytics/AnalyticsPagesPage';
 import AnalyticsCompletionPage from '../app/pages/analytics/AnalyticsCompletionPage';
 import CompletedBooksPage from '../app/pages/CompletedBooksPage';
 import ProfilePage from '../app/pages/ProfilePage';
@@ -77,6 +78,14 @@ const AppRoutes = () => (
         element={
           <ProtectedRoute>
             <AnalyticsStreakPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="analytics/pages"
+        element={
+          <ProtectedRoute>
+            <AnalyticsPagesPage />
           </ProtectedRoute>
         }
       />
