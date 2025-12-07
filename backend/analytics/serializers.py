@@ -51,6 +51,11 @@ class FavoriteCategorySerializer(serializers.Serializer):
     count = serializers.IntegerField()
 
 
+class DailyPagesSerializer(serializers.Serializer):
+    date = serializers.CharField()
+    pages = serializers.IntegerField()
+
+
 class UserReadingStatsSerializer(serializers.Serializer):
     total_books_read = serializers.IntegerField()
     total_time_seconds = serializers.IntegerField()
@@ -63,6 +68,7 @@ class UserReadingStatsSerializer(serializers.Serializer):
     books_read_this_year = serializers.IntegerField()
     books_read_this_month = serializers.IntegerField()
     total_time_this_month_seconds = serializers.IntegerField()
+    pages_daily_activity = DailyPagesSerializer(many=True, required=False)
 
 
 class AdminAnalyticsSerializer(serializers.Serializer):

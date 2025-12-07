@@ -327,6 +327,24 @@ def user_reading_stats(request):
         # Reading goal progress (assuming 12 books per year)
         reading_goal_progress = min(books_read_this_year / 12 * 100, 100)
 
+        # Pages daily activity (Last 14 days)
+        pages_daily_activity = []
+        for i in range(14):
+            date = today - timedelta(days=i)
+            # Sum pages_read of sessions started on this date
+            day_pages = ReadingSession.objects.filter(
+                user_id=user_pk,
+                started_at__date=date
+            ).aggregate(total_pages=Sum('pages_read'))
+            
+            pages = day_pages['total_pages'] or 0
+            
+            pages_daily_activity.append({
+                'date': date.strftime('%Y-%m-%d'),
+                'pages': pages
+            })
+        pages_daily_activity.reverse()
+
         serializer = UserReadingStatsSerializer({
             'total_books_read': total_books_read,
             'total_time_seconds': total_time_seconds,
@@ -340,7 +358,8 @@ def user_reading_stats(request):
             'reading_goal_progress': reading_goal_progress,
             'books_read_this_year': books_read_this_year,
             'books_read_this_month': books_read_this_month,
-            'total_time_this_month_seconds': total_time_this_month
+            'total_time_this_month_seconds': total_time_this_month,
+            'pages_daily_activity': pages_daily_activity # Added field
         })
 
         return Response(serializer.data)
