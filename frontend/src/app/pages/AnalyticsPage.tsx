@@ -1,14 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { getDashboard } from '../../lib/api/reading';
+import { DashboardData } from '../../lib/types';
 import LoadingOverlay from '../../components/feedback/LoadingOverlay';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 const AnalyticsPage = () => {
-    const { data, isLoading } = useQuery({
+    const { data, isLoading } = useQuery<DashboardData>({
         queryKey: ['dashboard'],
-        queryFn: getDashboard,
+        queryFn: () => getDashboard(),
         staleTime: 2 * 60 * 1000,
     });
 
