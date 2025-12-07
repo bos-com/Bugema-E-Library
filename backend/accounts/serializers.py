@@ -45,26 +45,42 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def validate_registration_number(self, value):
         """
-        USER: Define structure for Registration Number here.
-        Example: 
-        import re
-        if value and not re.match(r'^REG/\d{4}/\d{5}$', value):
-            raise serializers.ValidationError("Invalid Registration Number format.")
+        Validate Student Registration Number format.
+        Format: YY/DEPT/BU/R/XXXX (e.g., 22/BCC/BU/R/0000)
+        
+        LOCATION: backend/accounts/serializers.py - UserRegistrationSerializer.validate_registration_number
+        EDIT HERE: Modify the regex pattern if you need to change the format
         """
-        if value and User.objects.filter(registration_number=value).exists():
-            raise serializers.ValidationError("Registration number already in use.")
+        import re
+        if value:
+            # Format: 22/BCC/BU/R/0000
+            pattern = r'^\d{2}/[A-Z]{3}/BU/R/\d{4}$'
+            if not re.match(pattern, value):
+                raise serializers.ValidationError(
+                    "Invalid Registration Number format. Expected format: YY/DEPT/BU/R/XXXX (e.g., 22/BCC/BU/R/0000)"
+                )
+            if User.objects.filter(registration_number=value).exists():
+                raise serializers.ValidationError("Registration number already in use.")
         return value
 
     def validate_staff_id(self, value):
         """
-        USER: Define structure for Staff ID here.
-        Example:
-        import re
-        if value and not re.match(r'^STAFF-\d{3}$', value):
-            raise serializers.ValidationError("Invalid Staff ID format.")
+        Validate Staff ID format.
+        Format: STF/BU/XXX (e.g., STF/BU/000)
+        
+        LOCATION: backend/accounts/serializers.py - UserRegistrationSerializer.validate_staff_id
+        EDIT HERE: Modify the regex pattern if you need to change the format
         """
-        if value and User.objects.filter(staff_id=value).exists():
-             raise serializers.ValidationError("Staff ID already in use.")
+        import re
+        if value:
+            # Format: STF/BU/000
+            pattern = r'^STF/BU/\d{3}$'
+            if not re.match(pattern, value):
+                raise serializers.ValidationError(
+                    "Invalid Staff ID format. Expected format: STF/BU/XXX (e.g., STF/BU/000)"
+                )
+            if User.objects.filter(staff_id=value).exists():
+                raise serializers.ValidationError("Staff ID already in use.")
         return value
 
     def validate(self, attrs):
