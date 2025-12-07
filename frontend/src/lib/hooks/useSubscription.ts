@@ -17,25 +17,24 @@ interface SubscriptionState {
 export const useSubscription = (): SubscriptionState => {
     const user = useAuthStore((state) => state.user);
 
-    // Determine if user is a visitor (non-staff/student)
-    // Staff and students have role 'USER' but are identified differently
-    // For now, we check if the user's email contains staff/student patterns
-    // or check a specific field - adjust based on your User model
-    const isStaffOrStudent = user?.email?.includes('@bugema.ac.ug') ||
-        user?.email?.includes('staff') ||
-        user?.role === 'ADMIN';
-
-    const isVisitor = user !== null && !isStaffOrStudent;
+    // Determine if user is a visitor (doesn't have registration_number or staff_id)
+    // Backend determines this by checking if user has registration_number or staff_id
+    // Users with these IDs get free access, visitors need subscriptions
+    // LOCATION: Backend checks User.has_free_access property in backend/accounts/models.py
+    const isVisitor = user !== null && !user.registration_number && !user.staff_id;
 
     const { data: subscription, isLoading } = useQuery({
         queryKey: ['my-subscription'],
         queryFn: getMySubscription,
-        enabled: !!user && isVisitor, // Only fetch for visitors
+        enabled: !!user, // Fetch for all users (backend handles free access)
         staleTime: 60 * 1000, // 1 minute
         retry: false, // Don't retry if no subscription
     });
 
+    // Backend returns is_valid: true for users with registration_number or staff_id (free access)
+    // LOCATION: Backend logic in backend/subscriptions/views.py - MySubscriptionView.retrieve
     const hasActiveSubscription = subscription?.is_valid === true;
+    // Only visitors (no registration_number or staff_id) need subscription if they don't have one
     const needsSubscription = isVisitor && !hasActiveSubscription;
 
     // Calculate time remaining

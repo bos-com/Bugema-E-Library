@@ -8,6 +8,8 @@ export interface User {
   is_active: boolean;
   created_at: string;
   profile_picture?: string | null;
+  registration_number?: string | null; // For students - determines free access
+  staff_id?: string | null; // For staff - determines free access
 }
 
 export interface AdminUser extends User {

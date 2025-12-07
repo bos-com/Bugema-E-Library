@@ -145,7 +145,7 @@ const AppRoutes = () => (
             <SubscriptionPaymentPage />
           </ProtectedRoute>
         } />
-        <Route path="subscription/payment/:planId/mobile-money" element={
+        <Route path="subscription/payment/:planId/mobile-money/:provider?" element={
           <ProtectedRoute>
             <MobileMoneyPaymentPage />
           </ProtectedRoute>

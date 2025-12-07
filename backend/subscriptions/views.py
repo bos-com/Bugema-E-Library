@@ -66,21 +66,67 @@ class CreateSubscriptionView(views.APIView):
 class MySubscriptionView(generics.RetrieveAPIView):
     """
     Get the current user's active subscription.
+    Users with registration_number or staff_id get free access (no subscription needed).
+    Visitors need a paid subscription.
+    
+    LOCATION: backend/subscriptions/views.py - MySubscriptionView
+    EDIT HERE: Modify this logic if you need to change how free access is determined
     """
     serializer_class = UserSubscriptionSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
-        # Return the valid active subscription
-        # Or the most recent one if none active
+        user = self.request.user
+        
+        # Check if user has free access (has registration_number or staff_id)
+        # LOCATION: This checks User.has_free_access property
+        # EDIT: Modify User.has_free_access in backend/accounts/models.py if needed
+        if user.has_free_access:
+            # Return a virtual subscription object for free access users
+            # This allows the frontend to treat them as having valid subscription
+            from rest_framework.exceptions import NotFound
+            try:
+                # Try to get or create a virtual subscription for free access users
+                # We'll return None and handle it in the serializer
+                return None
+            except:
+                return None
+        
+        # For visitors (no registration_number or staff_id), check for paid subscription
         sub = UserSubscription.objects.filter(
-            user=self.request.user,
+            user=user,
             status='ACTIVE',
             end_date__gt=timezone.now()
         ).order_by('-end_date').first()
         
         if not sub:
             # Fallback to last subscription
-            sub = UserSubscription.objects.filter(user=self.request.user).order_by('-created_at').first()
+            sub = UserSubscription.objects.filter(user=user).order_by('-created_at').first()
             
         return sub
+    
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Override retrieve to handle free access users who don't have a subscription record.
+        """
+        user = request.user
+        
+        # If user has free access, return a virtual subscription response
+        if user.has_free_access:
+            from rest_framework.response import Response
+            return Response({
+                'id': None,
+                'plan': None,
+                'plan_name': 'Free Access',
+                'plan_duration': 'LIFETIME',
+                'start_date': user.created_at.isoformat() if user.created_at else None,
+                'end_date': None,
+                'status': 'ACTIVE',
+                'amount_paid': '0.00',
+                'payment_method': 'FREE',
+                'is_valid': True,
+                'created_at': user.created_at.isoformat() if user.created_at else None
+            })
+        
+        # For visitors, use the default behavior
+        return super().retrieve(request, *args, **kwargs)

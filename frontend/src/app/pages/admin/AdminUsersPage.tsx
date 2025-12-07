@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { Trash2 } from 'lucide-react';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { getUsers, updateUserRole, deleteUser } from '../../../lib/api/admin';
 import { AdminUser } from '../../../lib/types';
 import { useAuthStore } from '../../../lib/store/auth';
@@ -8,35 +9,32 @@ import LoadingOverlay from '../../../components/feedback/LoadingOverlay';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 
 const AdminUsersPage = () => {
-    const [users, setUsers] = useState<AdminUser[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; userId: string | null; userName: string }>({ isOpen: false, userId: null, userName: '' });
     const { user: currentUser } = useAuthStore();
+    const queryClient = useQueryClient();
 
-    useEffect(() => {
-        loadUsers();
-    }, []);
+    // Use React Query with caching for better performance
+    const { data: users = [], isLoading } = useQuery({
+        queryKey: ['admin-users'],
+        queryFn: getUsers,
+        staleTime: 30 * 1000, // Cache for 30 seconds
+        gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+    });
 
-    const loadUsers = async () => {
-        setIsLoading(true);
-        try {
-            const data = await getUsers();
-            setUsers(data);
-        } catch (error) {
-            toast.error('Failed to load users');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleRoleChange = async (userId: string, newRole: 'ADMIN' | 'USER') => {
-        try {
-            await updateUserRole(userId, newRole);
-            toast.success(`User role updated to ${newRole}`);
-            loadUsers();
-        } catch (error) {
+    const roleMutation = useMutation({
+        mutationFn: ({ userId, newRole }: { userId: string; newRole: 'ADMIN' | 'USER' }) =>
+            updateUserRole(userId, newRole),
+        onSuccess: (_, variables) => {
+            toast.success(`User role updated to ${variables.newRole}`);
+            queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+        },
+        onError: () => {
             toast.error('Failed to update user role');
-        }
+        },
+    });
+
+    const handleRoleChange = (userId: string, newRole: 'ADMIN' | 'USER') => {
+        roleMutation.mutate({ userId, newRole });
     };
 
     const openDeleteDialog = (userId: string, userName: string) => {
@@ -47,15 +45,21 @@ const AdminUsersPage = () => {
         setDeleteDialog({ isOpen: false, userId: null, userName: '' });
     };
 
-    const confirmDelete = async () => {
-        if (!deleteDialog.userId) return;
-        try {
-            await deleteUser(deleteDialog.userId);
+    const deleteMutation = useMutation({
+        mutationFn: deleteUser,
+        onSuccess: () => {
             toast.success('User deleted successfully');
-            loadUsers();
-        } catch (error) {
+            queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+            closeDeleteDialog();
+        },
+        onError: () => {
             toast.error('Failed to delete user');
-        }
+        },
+    });
+
+    const confirmDelete = () => {
+        if (!deleteDialog.userId) return;
+        deleteMutation.mutate(deleteDialog.userId);
     };
 
     if (isLoading) {

@@ -135,7 +135,7 @@ const RegisterPage = () => {
             {...register(accountType === 'STUDENT' ? 'registration_number' : 'staff_id')}
             disabled={mutation.isPending}
             className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-white disabled:opacity-50"
-            placeholder={accountType === 'STUDENT' ? 'e.g. 19/KG/283' : 'e.g. STF-001'}
+            placeholder={accountType === 'STUDENT' ? '22/BSE/BU/R/0000' :  'STF/BU/000'}
           />
           {/* Show error for either field if it exists */}
           {(errors.registration_number || errors.staff_id) && (

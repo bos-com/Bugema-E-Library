@@ -84,6 +84,18 @@ class User(AbstractBaseUser, PermissionsMixin):
     def get_short_name(self):
         return self.name.split()[0] if self.name else self.email
     
+    @property
+    def has_free_access(self):
+        """
+        Check if user has free access based on having registration_number or staff_id.
+        Users with registration_number (students) or staff_id (staff) get free access.
+        Visitors (no registration_number or staff_id) need subscriptions.
+        
+        LOCATION: backend/accounts/models.py - User.has_free_access property
+        EDIT HERE: Modify this logic if you need to change free access criteria
+        """
+        return bool(self.registration_number or self.staff_id)
+    
     def __str__(self):
         return f"{self.name} ({self.email})"
     

@@ -6,14 +6,21 @@ import toast from 'react-hot-toast';
 import { createSubscription, getPlans } from '../../../lib/api/subscriptions';
 
 const MobileMoneyPaymentPage = () => {
-    const { planId } = useParams();
+    const { planId, provider: urlProvider } = useParams();
     const navigate = useNavigate();
     const [phoneNumber, setPhoneNumber] = useState('');
-    const [provider, setProvider] = useState<'MTN' | 'AIRTEL'>('MTN');
+    const [provider, setProvider] = useState<'MTN' | 'AIRTEL'>((urlProvider?.toUpperCase() as 'MTN' | 'AIRTEL') || 'MTN');
     const [step, setStep] = useState<'input' | 'processing' | 'success'>('input');
 
-    const { data: plans } = useQuery({ queryKey: ['subscription-plans'], queryFn: getPlans });
-    const plan = plans?.find(p => p.id === Number(planId));
+    // Cache plans data
+    const { data: plans } = useQuery({ 
+        queryKey: ['subscription-plans'], 
+        queryFn: getPlans,
+        staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+        gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    });
+    const plansArray = Array.isArray(plans) ? plans : [];
+    const plan = plansArray.find(p => p.id === Number(planId));
 
     const mutation = useMutation({
         mutationFn: createSubscription,
