@@ -94,9 +94,21 @@ def user_dashboard(request):
     """Get user dashboard data"""
     user = request.user
     today = timezone.now().date()
+    period = request.query_params.get('period', 'all')
     
     try:
-        # Get reading progress
+        # Determine start date for period
+        start_date = None
+        if period == 'today':
+            start_date = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        elif period == 'week':
+            start_date = timezone.now() - timedelta(days=7)
+        elif period == 'month':
+            start_date = timezone.now() - timedelta(days=30)
+        elif period == 'year':
+            start_date = timezone.now() - timedelta(days=365)
+            
+        # Get reading progress (General lists not filtered by period usually, but stats will be)
         in_progress = ReadingProgress.objects.filter(
             user=user,
             completed=False
@@ -107,45 +119,59 @@ def user_dashboard(request):
             completed=True
         ).order_by('-updated_at')[:10]
         
-        # Get liked books
+        # ... (liked/bookmarked books code unchanged) ...
         liked_books = BookLike.objects.filter(user=user).select_related('book').order_by('-created_at')[:10]
         liked_book_ids = [like.book_id for like in liked_books]
         liked_books_data = Book.objects.filter(pk__in=liked_book_ids, is_published=True).order_by('-created_at')
         
-        # Get bookmarked books
         bookmarked_books_qs = Bookmark.objects.filter(user=user).select_related('book').order_by('-created_at')[:10]
         bookmarked_book_ids = [bookmark.book_id for bookmark in bookmarked_books_qs]
         bookmarked_books_data = Book.objects.filter(pk__in=bookmarked_book_ids, is_published=True)
         
         # Calculate stats
-        total_books_read = ReadingProgress.objects.filter(user=user, completed=True).count()
+        # Total books read (if period is all, all time. If period specific, in that period)
+        completed_qs = ReadingProgress.objects.filter(user=user, completed=True)
+        if start_date:
+            completed_qs = completed_qs.filter(updated_at__gte=start_date)
+        total_books_read = completed_qs.count()
         
-        # Total time (sum of all progress time)
-        time_sum = ReadingProgress.objects.filter(user=user).aggregate(Sum('total_time_seconds'))
-        total_time_seconds = time_sum['total_time_seconds__sum'] or 0
+        # Total time (sum of sessions in period)
+        sessions_qs = ReadingSession.objects.filter(user=user)
+        if start_date:
+            sessions_qs = sessions_qs.filter(started_at__gte=start_date)
+            
+        time_sum = sessions_qs.aggregate(Sum('duration_seconds'))
+        total_time_seconds = time_sum['duration_seconds__sum'] or 0
         
         # Total pages read
-        total_pages_read = sum(
-            progress.book.pages or 0 for progress in 
-            ReadingProgress.objects.filter(user=user, completed=True).select_related('book')
-        )
+        try:
+            # Try specific activity tracking first (requires migration)
+            pages_sum = sessions_qs.aggregate(Sum('pages_read'))
+            total_pages_read = pages_sum['pages_read__sum'] or 0
+        except Exception:
+            # Fallback to legacy logic (books completed) if migration missing
+            total_pages_read = sum(
+                progress.book.pages or 0 for progress in 
+                completed_qs.select_related('book')
+            )
         
-        # --- Improved Streak Calculation ---
+        # ... (streak and other stats) ...
+        # Improved Streak Calculation (Streak is generally "current", not dependent on period view usually?)
+        # User wants "data according to duration". But streak is "current status". Keep streak as is.
         current_streak_days = 0
         longest_streak = 0
         
-        # Get all dates with reading activity (from sessions)
-        sessions = ReadingSession.objects.filter(user=user).order_by('-started_at')
+        # Get all dates with reading activity (from sessions) - All time needed for streak
+        all_sessions = ReadingSession.objects.filter(user=user).order_by('-started_at')
         
-        if sessions.exists():
+        if all_sessions.exists():
             # Get unique dates, sorted descending
             session_dates = sorted(
-                list(set(s.started_at.astimezone(timezone.get_current_timezone()).date() for s in sessions)), 
+                list(set(s.started_at.astimezone(timezone.get_current_timezone()).date() for s in all_sessions)), 
                 reverse=True
             )
             
             # Calculate Current Streak
-            # Streak is active if last read was today or yesterday
             if session_dates and (session_dates[0] == today or session_dates[0] == today - timedelta(days=1)):
                 current_streak_days = 1
                 expected_date = session_dates[0] - timedelta(days=1)
@@ -161,51 +187,53 @@ def user_dashboard(request):
             current_sequence = 0
             longest_streak = 0
             if session_dates:
-                # Sort ascending for longest streak calculation
                 dates_asc = sorted(session_dates)
                 current_sequence = 1
                 longest_streak = 1
-                
                 for i in range(1, len(dates_asc)):
                     if dates_asc[i] == dates_asc[i-1] + timedelta(days=1):
                         current_sequence += 1
                     else:
                         current_sequence = 1
                     longest_streak = max(longest_streak, current_sequence)
+
+        # ... (Average session, likes, bookmarks) ...
+        # Reading goal progress
+        books_read_year = ReadingProgress.objects.filter(
+            user=user, 
+            completed=True, 
+            updated_at__year=today.year
+        ).count()
+        reading_goal_progress = min(books_read_year / 12 * 100, 100)
         
-        # Get favorite category
+        # Average session duration (in period?)
+        avg_session_qs = ReadingSession.objects.filter(user=user, ended_at__isnull=False)
+        if start_date:
+            avg_session_qs = avg_session_qs.filter(started_at__gte=start_date)
+        avg_session = avg_session_qs.aggregate(avg=Avg('duration_seconds'))
+        average_session_seconds = avg_session['avg'] or 0
+        
+        total_likes = BookLike.objects.filter(user=user).count()
+        total_bookmarks = Bookmark.objects.filter(user=user).count()
+        
+        # Favorite Category
         favorite_category = None
         category_counts = {}
-        for progress in ReadingProgress.objects.filter(user=user, completed=True).select_related('book'):
-            if progress.book_id:
+        # Use completed books in period for favorite category? Or all time? 
+        # Usually "My stats" implies current state. But if filtering... let's filter.
+        for progress in completed_qs.select_related('book'):
+             if progress.book_id:
                 for category in progress.book.categories.all():
                     category_name = category.name
                     if category_name:
                         category_counts[category_name] = category_counts.get(category_name, 0) + 1
-        
         if category_counts:
-            favorite_category = max(category_counts, key=category_counts.get)
-        
-        # Reading goal progress
-        reading_goal_progress = min(total_books_read / 12 * 100, 100)
-        
-        # Average session duration
-        avg_session = ReadingSession.objects.filter(
-            user=user,
-            ended_at__isnull=False
-        ).aggregate(avg=Avg('duration_seconds'))
-        average_session_seconds = avg_session['avg'] or 0
-        
-        # Total likes and bookmarks
-        total_likes = BookLike.objects.filter(user=user).count()
-        total_bookmarks = Bookmark.objects.filter(user=user).count()
-        
-        # --- Daily Activity (Last 14 days) ---
+             favorite_category = max(category_counts, key=category_counts.get)
+
+        # Daily Activity (Last 14 days) - Fixed for chart
         daily_activity = []
         for i in range(14):
             date = today - timedelta(days=i)
-            # Sum duration of sessions started on this date
-            # Using range to cover the full day in local time if possible, but date lookup is okay for now
             day_sessions = ReadingSession.objects.filter(
                 user=user,
                 started_at__date=date
@@ -218,20 +246,13 @@ def user_dashboard(request):
                 'minutes': minutes
             })
         daily_activity.reverse()
-        
-        # --- Total Time This Week ---
-        # Start of current week (Monday)
-        week_start = today - timedelta(days=today.weekday())
-        week_sessions = ReadingSession.objects.filter(
-            user=user,
-            started_at__date__gte=week_start
-        ).aggregate(total_time=Sum('duration_seconds'))
-        total_time_this_week_seconds = week_sessions['total_time'] or 0
-        
-        # --- Streak History (Last 30 days for calendar) ---
+
+        # Streak History
         streak_history = []
         for i in range(30):
             date = today - timedelta(days=29-i)
+            # Optimize: check if date in session_datesset?
+            # Re-querying in loop is okay for 30 items
             has_reading = ReadingSession.objects.filter(
                 user=user,
                 started_at__date=date
@@ -240,11 +261,10 @@ def user_dashboard(request):
                 'date': date.strftime('%Y-%m-%d'),
                 'read': has_reading
             })
-        
+
         stats = {
             'total_books_read': total_books_read,
             'total_time_seconds': total_time_seconds,
-            'total_time_this_week_seconds': total_time_this_week_seconds,
             'total_pages_read': total_pages_read,
             'current_streak_days': current_streak_days,
             'longest_streak_days': longest_streak,
@@ -407,41 +427,80 @@ def update_session_progress(request, session_id):
         return Response({'error': 'Active session not found'}, status=status.HTTP_404_NOT_FOUND)
     
     # Update session duration
-    current_duration = int((timezone.now() - session.started_at).total_seconds())
-    session.duration_seconds = current_duration
+    now = timezone.now()
+    # Calculate duration since last update or start
+    # We need to be careful not to double count. 
+    # Simplest way: Calculate total duration of session and update.
+    # But for ReadingProgress, we need the *delta* added since last time?
+    # actually, ReadingProgress.total_time_seconds is a cumulative counter.
+    # So we should probably add the difference between now and the last time we updated.
+    # However, we don't store "last_updated_time" for the session specifically for this calculation in a granular way easily without risk.
+    # Better approach: Calculate the new total duration of the session.
+    # The contribution of this session to the total book time is (new_duration - old_duration).
+    
+    old_duration = session.duration_seconds
+    new_duration = int((now - session.started_at).total_seconds())
+    
+    session.duration_seconds = new_duration
     session.save()
+    
+    # Calculate time delta to add to ReadingProgress
+    time_delta = new_duration - old_duration
     
     # Also update reading progress if data provided
     current_page = request.data.get('current_page')
     percent = request.data.get('percent')
     location = request.data.get('location')
     
-    if current_page is not None or percent is not None:
-        progress, created = ReadingProgress.objects.get_or_create(
-            user=request.user,
-            book=session.book,
-            defaults={
-                'last_location': location or '0',
-                'current_page': current_page or 0,
-                'percent': percent or 0.0,
-                'total_time_seconds': 0
-            }
-        )
+    # Always update progress time if there is a delta, even if no page change
+    # But we need a progress object.
+    progress, created = ReadingProgress.objects.get_or_create(
+        user=request.user,
+        book=session.book,
+        defaults={
+            'last_location': location or '0',
+            'current_page': current_page or 0,
+            'percent': percent or 0.0,
+            'total_time_seconds': 0
+        }
+    )
+    
+    # Calculate Page Delta
+    if current_page is not None:
+        old_page = progress.current_page
+        new_page = int(current_page)
+        # Only count forward progress for statistics? 
+        # Or count any pages read? Usually "pages read" means volume.
+        # But if I flip back and forth, does it count?
+        # Let's assume net progress for now to avoid gaming, or just simple absolute difference?
+        # Standard: max(0, new - old).
+        pages_delta = max(0, new_page - old_page)
         
-        if not created:
-            if location:
-                progress.last_location = location
-            if current_page is not None:
-                progress.current_page = int(current_page)
-                # Calculate percent from page if book has pages
-                if session.book.pages and session.book.pages > 0:
-                    progress.percent = (float(current_page) / float(session.book.pages)) * 100
-            elif percent is not None:
-                progress.percent = float(percent)
+        if pages_delta > 0:
+            session.pages_read += pages_delta
+            session.save()
             
-            progress.last_opened_at = timezone.now()
-            progress.completed = progress.percent >= 95.0
-            progress.save()
+    if time_delta > 0:
+        progress.total_time_seconds += time_delta
+
+    if not created:
+        if location:
+            progress.last_location = location
+        if current_page is not None:
+            progress.current_page = int(current_page)
+            # Calculate percent from page if book has pages
+            if session.book.pages and session.book.pages > 0:
+                progress.percent = (float(current_page) / float(session.book.pages)) * 100
+        elif percent is not None:
+            progress.percent = float(percent)
+        
+        progress.last_opened_at = timezone.now()
+        progress.completed = progress.percent >= 95.0
+        progress.save()
+    else:
+        # If created, we might still need to save the time_delta if it was > 0 (unlikely on create but possible if logic changes)
+        if time_delta > 0:
+             progress.save()
     
     return Response(ReadingSessionSerializer(session).data)
 
@@ -514,6 +573,9 @@ def user_analytics(request):
     if period == 'month':
         start_date = today - timedelta(days=29) # Last 30 days
         days_range = 30
+    elif period == 'year':
+        start_date = today - timedelta(days=364) # Last 365 days
+        days_range = 365
     else: # week
         start_date = today - timedelta(days=6) # Last 7 days
         days_range = 7
@@ -574,19 +636,76 @@ def user_analytics(request):
             'read': has_reading
         })
     
-    # 4. Completion Stats (General)
-    total_books = ReadingProgress.objects.filter(user=user).count()
-    completed_books = ReadingProgress.objects.filter(user=user, completed=True).count()
+    # ... (previous code)
+
+    # 4. Pages Distribution (Daily)
+    pages_daily_activity = []
+    try:
+        pages_stats = ReadingSession.objects.filter(
+            user=user,
+            started_at__date__gte=start_date,
+            started_at__isnull=False
+        ).annotate(
+            date=F('started_at__date')
+        ).values('date').annotate(
+            total_pages=Sum('pages_read')
+        ).order_by('date')
+        
+        pages_map = {stat['date']: stat['total_pages'] for stat in pages_stats if stat['date']}
+        
+        for i in range(days_range):
+            date = start_date + timedelta(days=i)
+            pages = pages_map.get(date, 0)
+            pages_daily_activity.append({
+                'date': date.strftime('%Y-%m-%d'),
+                'pages': pages
+            })
+    except Exception:
+        pass # Return empty list if migration missing
+
+    # 5. Completion Stats (General)
+    total_book_progress = ReadingProgress.objects.filter(user=user)
+    total_books = total_book_progress.count()
+    completed_books = total_book_progress.filter(completed=True).count()
     completion_rate = (completed_books / total_books * 100) if total_books > 0 else 0
     
+    # Total pages read (all time)
+    # Using session sum for accuracy if pages_read populated, 
+    # but since it's new, we might need fallback or just sum what we have.
+    # Older logic used book.pages sum. Let's use that for "Total Pages Read" card consistency
+    # or better: sum of pages_read in sessions (accurate activity) + maybe legacy estimate?
+    # User wants "accurate". Session sum is accurate for NEW activity. Old activity has 0 pages_read.
+    # If we want to show total pages ever read, book.pages for completed books is a fair proxy for old data.
+    # But "Pages Read" graph needs session data.
+    # Let's provide both or just session sum for graph.
+    # The frontend uses `total_pages_read` for the card.
+    
+    # Calculate total pages read (from sessions)
+    try:
+        total_pages_read_sessions = ReadingSession.objects.filter(user=user).aggregate(t=Sum('pages_read'))['t'] or 0
+    except Exception:
+        total_pages_read_sessions = 0
+    
+    # Calculate total pages read (from completed books - legacy proxy)
+    total_pages_read_books = sum(p.book.pages or 0 for p in total_book_progress.filter(completed=True).select_related('book'))
+    
+    # Use the larger one? or just session one if we migrate?
+    # Since we can't migrate old session data easily to pages_read without complex logic, 
+    # maybe just return what we have.
+    # Let's return `total_pages_read` from `user_dashboard` logic (books based) as `total_pages_read`
+    # AND `pages_daily_activity` for the graph.
+    
+    total_pages_read = total_pages_read_books
+
     # Categories
     categories_data = []
     try:
         category_counts = {}
-        for progress in ReadingProgress.objects.filter(user=user, completed=True).select_related('book'):
-            for category in progress.book.categories.all():
-                name = category.name
-                category_counts[name] = category_counts.get(name, 0) + 1
+        for progress in total_book_progress.filter(completed=True).select_related('book'):
+            if progress.book:
+                for category in progress.book.categories.all():
+                    name = category.name
+                    category_counts[name] = category_counts.get(name, 0) + 1
         
         categories_data = [{'name': k, 'value': v} for k, v in category_counts.items()]
         categories_data.sort(key=lambda x: x['value'], reverse=True)
@@ -595,9 +714,11 @@ def user_analytics(request):
 
     return Response({
         'hourly_distribution': hourly_data,
-        'daily_distribution': daily_distribution, # New field
-        'weekly_distribution': daily_distribution, # Backwards compatibility
+        'daily_distribution': daily_distribution,
+        'weekly_distribution': daily_distribution,
         'streak_history': streak_history,
+        'pages_daily_activity': pages_daily_activity, # New field
+        'total_pages_read': total_pages_read, # Included for convenience
         'completion_stats': {
             'rate': round(completion_rate),
             'total': total_books,

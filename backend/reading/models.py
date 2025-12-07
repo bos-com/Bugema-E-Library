@@ -124,6 +124,11 @@ class ReadingSession(models.Model):
         help_text="Calculated duration of the session in seconds."
     )
     
+    pages_read = models.IntegerField(
+        default=0,
+        help_text="Number of pages read during this session."
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:

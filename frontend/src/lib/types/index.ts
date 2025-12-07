@@ -135,6 +135,8 @@ export interface AnalyticsData {
     full_day_name: string;
     minutes: number;
   }>;
+  pages_daily_activity?: Array<{ date: string; pages: number }>;
+  total_pages_read?: number;
   streak_history: Array<{ date: string; read: boolean }>;
   completion_stats: {
     rate: number;

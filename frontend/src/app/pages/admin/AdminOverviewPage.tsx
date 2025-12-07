@@ -70,16 +70,9 @@ const AdminOverviewPage = () => {
           <div className="card p-4">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Total Reads</p>
-              <select
-                value={readsPeriod}
-                onChange={(e) => setReadsPeriod(e.target.value as TimePeriod)}
-                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 dark:border-white/10 dark:bg-slate-800 dark:text-white"
-              >
-                <option value="today">Today</option>
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-                <option value="year">This Year</option>
-              </select>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                {periodLabels[readsPeriod]}
+              </span>
             </div>
             <p className="text-3xl font-bold text-violet-600 dark:text-violet-400">
               {data.overview.total_reads_period || data.overview.total_reads}
@@ -110,9 +103,16 @@ const AdminOverviewPage = () => {
                 {readsPeriod === 'today' ? 'Hourly reads today' : `Daily reads over the last ${readsPeriod}`}
               </p>
             </div>
-            <div className="rounded-xl bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
-              {periodLabels[readsPeriod]}
-            </div>
+            <select
+              value={readsPeriod}
+              onChange={(e) => setReadsPeriod(e.target.value as TimePeriod)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 dark:border-white/10 dark:bg-slate-800 dark:text-white"
+            >
+              <option value="today">Today</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+              <option value="year">This Year</option>
+            </select>
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">

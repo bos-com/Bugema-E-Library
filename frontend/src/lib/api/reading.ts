@@ -1,12 +1,14 @@
 import api from './client';
 import type { DashboardData, ReadingProgress, ReadingSession, AnalyticsData } from '../types';
 
-export const getDashboard = async () => {
-  const response = await api.get<DashboardData>('/reading/dashboard/');
+export const getDashboard = async (period: string = 'week') => {
+  const response = await api.get<DashboardData>('/reading/dashboard/', {
+    params: { period }
+  });
   return response.data;
 };
 
-export const getUserAnalytics = async (period: 'week' | 'month' = 'week') => {
+export const getUserAnalytics = async (period: 'week' | 'month' | 'year' = 'week') => {
   const { data } = await api.get<AnalyticsData>('/reading/analytics/', {
     params: { period }
   });
