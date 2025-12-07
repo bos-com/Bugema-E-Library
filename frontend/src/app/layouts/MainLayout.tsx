@@ -61,7 +61,7 @@ const MainLayout = () => {
               </>
             ) : (
               <div className="space-x-3">
-                <Link to="/login" className="text-sm font-medium text-slate-900 dark:text-white">
+                <Link to="/login" className="text-sm font-medium text-slate-900 hover:text-slate-900 dark:text-white dark:hover:text-white">
                   Login
                 </Link>
                 <Link to="/register" className="hidden btn-primary text-sm md:inline-flex">

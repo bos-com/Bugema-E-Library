@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../../lib/store/auth';
 import { Menu, X, ChevronLeft, ChevronRight, LayoutDashboard, Users, BookOpen, FolderTree } from 'lucide-react';
 import { useState } from 'react';
+import bugemaLogo from '../../../bugema.webp';
 
 const adminLinks = [
   { label: 'Overview', to: '/admin/overview', icon: LayoutDashboard },
