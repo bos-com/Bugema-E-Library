@@ -1,0 +1,57 @@
+[
+    {
+        "model": "subscriptions.subscriptionplan",
+        "pk": 1,
+        "fields": {
+            "name": "Hourly Pass",
+            "duration": "HOURLY",
+            "price": "2000.00",
+            "description": "Quick access for reading a chapter.",
+            "features": "1 Hour Access\nAll Books"
+        }
+    },
+    {
+        "model": "subscriptions.subscriptionplan",
+        "pk": 2,
+        "fields": {
+            "name": "Daily Pass",
+            "duration": "DAILY",
+            "price": "5000.00",
+            "description": "Full day access.",
+            "features": "24 Hours Access\nAll Books"
+        }
+    },
+    {
+        "model": "subscriptions.subscriptionplan",
+        "pk": 3,
+        "fields": {
+            "name": "Weekly Plan",
+            "duration": "WEEKLY",
+            "price": "15000.00",
+            "description": "Best for short term research.",
+            "features": "7 Days Access\nAll Books"
+        }
+    },
+    {
+        "model": "subscriptions.subscriptionplan",
+        "pk": 4,
+        "fields": {
+            "name": "Monthly Plan",
+            "duration": "MONTHLY",
+            "price": "40000.00",
+            "description": "Most popular plan.",
+            "features": "30 Days Access\nAll Books\nOffline Mode"
+        }
+    },
+    {
+        "model": "subscriptions.subscriptionplan",
+        "pk": 5,
+        "fields": {
+            "name": "Yearly Plan",
+            "duration": "YEARLY",
+            "price": "300000.00",
+            "description": "Best value for frequent readers.",
+            "features": "365 Days Access\nAll Books\nPriority Support"
+        }
+    }
+]

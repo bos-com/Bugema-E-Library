@@ -48,17 +48,27 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Profile picture stored in Cloudinary
     profile_picture = CloudinaryField('profile_pictures', null=True, blank=True)
 
+    # Identification fields for specific roles
+    # USER to define structure here: e.g. validators=[RegexValidator(regex=r'^...')]
+    registration_number = models.CharField(max_length=50, unique=True, null=True, blank=True, help_text="For Students")
+    staff_id = models.CharField(max_length=50, unique=True, null=True, blank=True, help_text="For Staff")
+
     # Role field
     class Role(models.TextChoices):
-        USER = 'USER', 'User'
+        STUDENT = 'STUDENT', 'Student'
+        STAFF = 'STAFF', 'Staff'
+        SUBSCRIBER = 'SUBSCRIBER', 'Subscriber'
         ADMIN = 'ADMIN', 'Admin'
     
     role = models.CharField(
-        max_length=5,
+        max_length=20,
         choices=Role.choices,
-        default=Role.USER,
+        default=Role.SUBSCRIBER, # Defaulting to Subscriber for "outsiders" until they pay/register
     )
     
+    # Security: Single session enforcement
+    session_token = models.CharField(max_length=255, null=True, blank=True)
+
     # --- Permissions and Status Fields 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)    
