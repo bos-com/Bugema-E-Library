@@ -60,11 +60,18 @@ LOCAL_APPS = [
     'catalog',
     'analytics',
     'reading',
+    'subscriptions',
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 AUTH_USER_MODEL = 'accounts.User'
+
+AUTHENTICATION_BACKENDS = [
+    'accounts.backends.EmailOrIdBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -158,7 +165,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # REST Framework Configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'accounts.authentication.SingleSessionJWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -177,8 +184,8 @@ REST_FRAMEWORK = {
 # JWT Configuration
 from datetime import timedelta
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(seconds=int(os.getenv('JWT_ACCESS_TOKEN_LIFETIME', 900000))),
-    'REFRESH_TOKEN_LIFETIME': timedelta(seconds=int(os.getenv('JWT_REFRESH_TOKEN_LIFETIME', 604800))),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(hours=12),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
@@ -267,18 +274,32 @@ LOGGING = {
     },
 }
 
-# CACHE Configuration
-REDIS_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1')
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": REDIS_URL,
-    }
-}
+# CACHE Configuration - Use Redis if available, fallback to local memory cache
+REDIS_URL = os.getenv('REDIS_URL', '')
 
-# Tell django-ratelimit which cache to use (optional if you want 'default')
-RATELIMIT_USE_CACHE = "default" 
-RATELIMIT_ENABLE = True
+# Only use Redis in production (when REDIS_URL is set to a real server)
+if REDIS_URL and not REDIS_URL.startswith('redis://127.0.0.1'):
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
+    }
+    # Enable rate limiting with Redis
+    RATELIMIT_USE_CACHE = "default"
+    RATELIMIT_ENABLE = True
+else:
+    # Fallback for local development - use LocMem cache
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "unique-snowflake",
+        }
+    }
+    # Disable rate limiting in development (requires shared cache)
+    RATELIMIT_ENABLE = False
+    # Silence django-ratelimit checks in development
+    SILENCED_SYSTEM_CHECKS = ['django_ratelimit.E003', 'django_ratelimit.W001']
 
 
 # Cloudinary credentials (load from environment or secret manager)

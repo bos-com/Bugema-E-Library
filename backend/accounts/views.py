@@ -10,6 +10,10 @@ from .models import User
 from .serializers import UserSerializer, UserRegistrationSerializer, CustomTokenObtainPairSerializer
 from .permissions import IsAdminRole
 
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from .serializers import AdminUserListSerializer
+
 
 class RegisterView(generics.CreateAPIView):
     """User registration view"""
@@ -113,10 +117,6 @@ def update_profile(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-
-from rest_framework import viewsets
-from rest_framework.decorators import action
-from .serializers import AdminUserListSerializer
 
 # --- ADMIN VIEWS ---
 

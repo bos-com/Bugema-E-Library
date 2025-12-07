@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useState } from 'react';
 import { getBookDetail, toggleBookmark, toggleLike } from '../../lib/api/catalog';
 import LoadingOverlay from '../../components/feedback/LoadingOverlay';
+import SubscriptionPaywall from '../../components/subscription/SubscriptionPaywall';
 import { useAuthStore } from '../../lib/store/auth';
+import { useSubscription } from '../../lib/hooks/useSubscription';
 import type { BookDetail } from '../../lib/types';
 
 const BookDetailPage = () => {
@@ -10,6 +13,11 @@ const BookDetailPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallAction, setPaywallAction] = useState('');
+
+  // Check if visitor needs subscription
+  const { needsSubscription, isLoading: subscriptionLoading } = useSubscription();
 
   const { data: book, isLoading } = useQuery({
     queryKey: ['book', bookId],
@@ -63,6 +71,34 @@ const BookDetailPage = () => {
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['book', bookId] }),
   });
 
+  // Handler that checks subscription before allowing action
+  const handleProtectedAction = (action: 'like' | 'bookmark' | 'read') => {
+    if (!subscriptionLoading && needsSubscription) {
+      setPaywallAction(action === 'like' ? 'like books' : action === 'bookmark' ? 'bookmark books' : 'read books');
+      setShowPaywall(true);
+      return true; // Action was blocked
+    }
+    return false; // Action allowed
+  };
+
+  const handleLike = () => {
+    if (!handleProtectedAction('like')) {
+      likeMutation.mutate();
+    }
+  };
+
+  const handleBookmark = () => {
+    if (!handleProtectedAction('bookmark')) {
+      bookmarkMutation.mutate();
+    }
+  };
+
+  const handleOpenReader = () => {
+    if (!handleProtectedAction('read')) {
+      navigate(`/reader/${book?.id}`);
+    }
+  };
+
   if (isLoading || !book) {
     return <LoadingOverlay label="Loading book details" />;
   }
@@ -114,7 +150,7 @@ const BookDetailPage = () => {
           </div>
           {user ? (
             <div className="space-y-2">
-              <button className="btn-primary w-full" onClick={() => navigate(`/reader/${book.id}`)}>
+              <button className="btn-primary w-full" onClick={handleOpenReader}>
                 Open reader
               </button>
               <div className="flex gap-2">
@@ -123,7 +159,7 @@ const BookDetailPage = () => {
                     ? 'border-red-500 bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400'
                     : 'border-slate-300 text-slate-700 hover:border-red-500/50 hover:bg-red-50 dark:border-white/10 dark:text-white dark:hover:bg-red-500/5'
                     }`}
-                  onClick={() => likeMutation.mutate()}
+                  onClick={handleLike}
                 >
                   ♥ Like
                 </button>
@@ -132,7 +168,7 @@ const BookDetailPage = () => {
                     ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-400/10 dark:text-brand-300'
                     : 'border-slate-300 text-slate-700 hover:border-brand-400/50 hover:bg-brand-50 dark:border-white/10 dark:text-white dark:hover:bg-brand-400/5'
                     }`}
-                  onClick={() => bookmarkMutation.mutate()}
+                  onClick={handleBookmark}
                 >
                   ⌁ Bookmark
                 </button>
@@ -143,6 +179,13 @@ const BookDetailPage = () => {
           )}
         </div>
       </div>
+
+      {/* Subscription Paywall Modal */}
+      <SubscriptionPaywall
+        isOpen={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        actionBlocked={paywallAction}
+      />
     </div>
   );
 };
