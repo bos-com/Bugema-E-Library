@@ -21,6 +21,8 @@ export const register = async (payload: {
   name: string;
   password: string;
   password_confirm: string;
+  registration_number?: string;
+  staff_id?: string;
 }) => {
   const { data } = await api.post<AuthResponse>('/auth/register/', payload);
   return data;

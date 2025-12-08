@@ -14,6 +14,7 @@ export interface User {
 
 export interface AdminUser extends User {
   is_online?: boolean;
+  user_type?: 'Student' | 'Staff' | 'Visitor';
 }
 
 export interface Category {

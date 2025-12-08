@@ -80,6 +80,7 @@ const AdminUsersPage = () => {
                             <tr>
                                 <th className="px-6 py-3">User</th>
                                 <th className="px-6 py-3">Status</th>
+                                <th className="px-6 py-3">Type</th>
                                 <th className="px-6 py-3">Role</th>
                                 <th className="px-6 py-3">Joined</th>
                                 <th className="px-6 py-3 text-right">Actions</th>
@@ -109,6 +110,16 @@ const AdminUsersPage = () => {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
+                                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${user.user_type === 'Student'
+                                                ? 'bg-blue-500/20 text-blue-300'
+                                                : user.user_type === 'Staff'
+                                                    ? 'bg-emerald-500/20 text-emerald-300'
+                                                    : 'bg-amber-500/20 text-amber-300'
+                                            }`}>
+                                            {user.user_type || 'Visitor'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">
                                         <select
                                             value={user.role}
                                             onChange={(e) => handleRoleChange(user.id, e.target.value as 'ADMIN' | 'USER')}
@@ -123,7 +134,11 @@ const AdminUsersPage = () => {
                                         </select>
                                     </td>
                                     <td className="px-6 py-4">
-                                        {new Date(user.created_at).toLocaleDateString()}
+                                        {user.created_at ? new Date(user.created_at).toLocaleDateString('en-US', {
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric'
+                                        }) : 'N/A'}
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <button

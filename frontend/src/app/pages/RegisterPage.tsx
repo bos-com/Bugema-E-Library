@@ -59,10 +59,9 @@ const RegisterPage = () => {
 
   const mutation = useMutation({
     mutationFn: registerUser,
-    onSuccess: (data) => {
-      setSession({ user: data.user, accessToken: data.tokens.access, refreshToken: data.tokens.refresh });
-      toast.success('Account created successfully');
-      navigate('/');
+    onSuccess: () => {
+      toast.success('Account created successfully! Please sign in.');
+      navigate('/login');
     },
     onError: (error: any) => {
       const msg = error?.response?.data?.error || 'Registration failed';
@@ -93,8 +92,8 @@ const RegisterPage = () => {
             setValue('account_type', 'STUDENT');
           }}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${accountType === 'STUDENT'
-              ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
-              : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+            ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
+            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
         >
           Student
@@ -106,8 +105,8 @@ const RegisterPage = () => {
             setValue('account_type', 'STAFF');
           }}
           className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${accountType === 'STAFF'
-              ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
-              : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+            ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
+            : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
         >
           Staff Member
@@ -135,7 +134,7 @@ const RegisterPage = () => {
             {...register(accountType === 'STUDENT' ? 'registration_number' : 'staff_id')}
             disabled={mutation.isPending}
             className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-white disabled:opacity-50"
-            placeholder={accountType === 'STUDENT' ? '22/BSE/BU/R/0000' :  'STF/BU/000'}
+            placeholder={accountType === 'STUDENT' ? '22/BSE/BU/R/0000' : 'STF/BU/000'}
           />
           {/* Show error for either field if it exists */}
           {(errors.registration_number || errors.staff_id) && (
