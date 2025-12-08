@@ -63,19 +63,29 @@ const PDFViewer = ({
     const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
     // Detect mobile device and set appropriate defaults
+    // Detect mobile device and set appropriate defaults
     useEffect(() => {
         const checkMobile = () => {
             const mobile = window.innerWidth < 768;
             setIsMobile(mobile);
+
             // Auto-adjust scale for mobile - optimize for readability
             if (mobile) {
                 // Calculate scale to fit screen width with minimal padding for maximum reading area
                 const containerWidth = window.innerWidth - 16; // 8px padding each side
                 const pdfDefaultWidth = 612; // Standard PDF page width in points
+
                 // Scale up to fit width, minimum 0.8 for readability
                 const idealScale = containerWidth / pdfDefaultWidth;
                 const newScale = Math.max(0.8, Math.min(idealScale, 1.5));
-                setScale(newScale);
+
+                // Only update scale if it changes significantly (prevent flickering from small browser UI resizes)
+                setScale(prevScale => {
+                    if (Math.abs(prevScale - newScale) > 0.05) {
+                        return newScale;
+                    }
+                    return prevScale;
+                });
                 setShowPreview(false);
             } else {
                 setScale(1.5);
@@ -84,8 +94,19 @@ const PDFViewer = ({
         };
 
         checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
+
+        // Debounce resize event
+        let timeoutId: ReturnType<typeof setTimeout>;
+        const handleResize = () => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(checkMobile, 100);
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            clearTimeout(timeoutId);
+        };
     }, []);
 
     useEffect(() => {

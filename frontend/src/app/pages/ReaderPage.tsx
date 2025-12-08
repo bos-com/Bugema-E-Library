@@ -90,7 +90,14 @@ const ReaderPage = () => {
 
 	// Mutation for ending session
 	const endSessionMutation = useMutation({
-		mutationFn: (sessionId: string) => endSession(sessionId),
+		mutationFn: async (sessionId: string) => {
+			try {
+				await endSession(sessionId);
+			} catch (error) {
+				// Ignore errors during cleanup (e.g. session already closed or 404)
+				console.warn("Session cleanup warning:", error);
+			}
+		},
 	});
 
 	// Start reading session when component mounts
