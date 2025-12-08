@@ -35,3 +35,23 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
         # For visitors, check if they have an active paid subscription
         from django.utils import timezone
         return obj.status == 'ACTIVE' and obj.end_date and obj.end_date > timezone.now()
+
+
+class AdminSubscriptionSerializer(serializers.ModelSerializer):
+    """Serializer for admin to view all subscriptions with user details"""
+    user_name = serializers.CharField(source='user.name', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    plan_name = serializers.CharField(source='plan.name', read_only=True)
+    plan_duration = serializers.CharField(source='plan.duration', read_only=True)
+    is_active = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = UserSubscription
+        fields = ['id', 'user_name', 'user_email', 'plan_name', 'plan_duration', 
+                  'start_date', 'end_date', 'status', 'amount_paid', 'payment_method', 
+                  'is_active', 'created_at']
+    
+    def get_is_active(self, obj):
+        from django.utils import timezone
+        return obj.status == 'ACTIVE' and obj.end_date and obj.end_date > timezone.now()
+
