@@ -23,6 +23,7 @@ const BookDetailPage = () => {
     queryKey: ['book', bookId],
     queryFn: () => getBookDetail(bookId!),
     enabled: Boolean(bookId),
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
   });
 
   const likeMutation = useMutation({

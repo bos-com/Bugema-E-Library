@@ -130,3 +130,100 @@ class MySubscriptionView(generics.RetrieveAPIView):
         
         # For visitors, use the default behavior
         return super().retrieve(request, *args, **kwargs)
+
+
+# --- ADMIN VIEWS ---
+
+from accounts.permissions import IsAdminRole
+from .serializers import AdminSubscriptionSerializer
+from django.db.models import Sum
+from django.db.models.functions import TruncDate, TruncMonth, TruncYear
+from datetime import timedelta
+
+
+class AdminSubscriptionListView(generics.ListAPIView):
+    """
+    Admin view to list all subscriptions with user details.
+    Supports filtering by period: week, month, year
+    """
+    serializer_class = AdminSubscriptionSerializer
+    permission_classes = [IsAdminRole]
+    
+    def get_queryset(self):
+        queryset = UserSubscription.objects.select_related('user', 'plan').order_by('-created_at')
+        
+        # Optional filter by status
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            queryset = queryset.filter(status=status_filter.upper())
+        
+        # Period filter (week, month, year)
+        period = self.request.query_params.get('period')
+        if period:
+            now = timezone.now()
+            if period == 'week':
+                # Start of current week (Monday)
+                start_of_week = now - timedelta(days=now.weekday())
+                start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
+                queryset = queryset.filter(created_at__gte=start_of_week)
+            elif period == 'month':
+                start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                queryset = queryset.filter(created_at__gte=start_of_month)
+            elif period == 'year':
+                start_of_year = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+                queryset = queryset.filter(created_at__gte=start_of_year)
+        
+        return queryset
+
+
+class AdminSubscriptionRevenueView(views.APIView):
+    """
+    Admin view to get subscription revenue stats.
+    Returns revenue for today, this month, and this year in UGX.
+    """
+    permission_classes = [IsAdminRole]
+    
+    def get(self, request):
+        now = timezone.now()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        # Revenue today
+        revenue_today = UserSubscription.objects.filter(
+            status='ACTIVE',
+            created_at__gte=today_start
+        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+        
+        # Revenue this month
+        revenue_month = UserSubscription.objects.filter(
+            status='ACTIVE',
+            created_at__gte=month_start
+        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+        
+        # Revenue this year
+        revenue_year = UserSubscription.objects.filter(
+            status='ACTIVE',
+            created_at__gte=year_start
+        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+        
+        # Total revenue all time
+        revenue_total = UserSubscription.objects.filter(
+            status='ACTIVE'
+        ).aggregate(total=Sum('amount_paid'))['total'] or 0
+        
+        # Active subscribers count
+        active_count = UserSubscription.objects.filter(
+            status='ACTIVE',
+            end_date__gt=now
+        ).count()
+        
+        return Response({
+            'currency': 'UGX',
+            'revenue_today': float(revenue_today),
+            'revenue_month': float(revenue_month),
+            'revenue_year': float(revenue_year),
+            'revenue_total': float(revenue_total),
+            'active_subscribers': active_count
+        })
+

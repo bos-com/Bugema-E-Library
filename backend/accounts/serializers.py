@@ -46,21 +46,23 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def validate_registration_number(self, value):
         """
         Validate Student Registration Number format.
-        Format: YY/DEPT/BU/R/XXXX (e.g., 22/BCC/BU/R/0000)
+        Format: YY/DEPT/BU/R/XXXX (e.g., 22/BSE/BU/R/0000)
         
         LOCATION: backend/accounts/serializers.py - UserRegistrationSerializer.validate_registration_number
         EDIT HERE: Modify the regex pattern if you need to change the format
         """
         import re
-        if value:
-            # Format: 22/BCC/BU/R/0000
-            pattern = r'^\d{2}/[A-Z]{3}/BU/R/\d{4}$'
+        if value and value.strip():
+            value = value.strip().upper()  # Normalize to uppercase
+            # Format: 22/BSE/BU/R/0000 (2-4 letter department codes allowed)
+            pattern = r'^\d{2}/[A-Z]{2,4}/BU/R/\d{4}$'
             if not re.match(pattern, value):
                 raise serializers.ValidationError(
-                    "Invalid Registration Number format. Expected format: YY/DEPT/BU/R/XXXX (e.g., 22/BCC/BU/R/0000)"
+                    "Invalid format. Use: YY/DEPT/BU/R/XXXX (e.g., 22/BSE/BU/R/0000). "
+                    "Year: 2 digits, Department: 2-4 letters, then /BU/R/ followed by 4 digits."
                 )
             if User.objects.filter(registration_number=value).exists():
-                raise serializers.ValidationError("Registration number already in use.")
+                raise serializers.ValidationError("This registration number is already registered.")
         return value
 
     def validate_staff_id(self, value):
@@ -72,15 +74,17 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         EDIT HERE: Modify the regex pattern if you need to change the format
         """
         import re
-        if value:
-            # Format: STF/BU/000
-            pattern = r'^STF/BU/\d{3}$'
+        if value and value.strip():
+            value = value.strip().upper()  # Normalize to uppercase
+            # Format: STF/BU/000 (3-4 digits allowed)
+            pattern = r'^STF/BU/\d{3,4}$'
             if not re.match(pattern, value):
                 raise serializers.ValidationError(
-                    "Invalid Staff ID format. Expected format: STF/BU/XXX (e.g., STF/BU/000)"
+                    "Invalid format. Use: STF/BU/XXX (e.g., STF/BU/000). "
+                    "Start with STF/BU/ followed by 3-4 digits."
                 )
             if User.objects.filter(staff_id=value).exists():
-                raise serializers.ValidationError("Staff ID already in use.")
+                raise serializers.ValidationError("This staff ID is already registered.")
         return value
 
     def validate(self, attrs):
@@ -104,15 +108,21 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password_confirm', None)
         
-        reg_no = validated_data.get('registration_number')
-        staff_id = validated_data.get('staff_id')
+        # Convert empty strings to None to avoid unique constraint violations
+        # PostgreSQL allows multiple NULL values but not multiple empty strings in unique columns
+        reg_no = validated_data.get('registration_number') or None
+        staff_id = validated_data.get('staff_id') or None
         
-        # Determine Role
-        role = User.Role.SUBSCRIBER # Default
+        # Normalize to uppercase and strip whitespace if present
         if reg_no:
-            role = User.Role.STUDENT
-        elif staff_id:
-            role = User.Role.STAFF
+            reg_no = reg_no.strip().upper()
+        if staff_id:
+            staff_id = staff_id.strip().upper()
+        
+        # All users default to USER role - admin assigns roles manually
+        # The registration_number/staff_id only determine user TYPE for free access
+        # They don't affect the role - admin must promote to ADMIN manually
+        role = 'USER'
             
         user = User(
             email=validated_data['email'],
@@ -167,10 +177,12 @@ class AdminUserListSerializer(serializers.ModelSerializer):
     """Serializer for Admin to view user list with online status"""
     is_online = serializers.SerializerMethodField()
     profile_picture = serializers.SerializerMethodField()
+    user_type = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = User
-        fields = ['id', 'name', 'email', 'role', 'last_seen', 'is_online', 'profile_picture']
+        fields = ['id', 'name', 'email', 'role', 'last_seen', 'is_online', 'profile_picture', 'user_type', 'created_at']
 
     def get_is_online(self, obj):
         if obj.last_seen:
@@ -182,3 +194,12 @@ class AdminUserListSerializer(serializers.ModelSerializer):
         if obj.profile_picture:
             return obj.profile_picture.url
         return None
+
+    def get_user_type(self, obj):
+        """Return user type based on registration_number or staff_id"""
+        if obj.registration_number:
+            return 'Student'
+        elif obj.staff_id:
+            return 'Staff'
+        else:
+            return 'Visitor'

@@ -67,13 +67,15 @@ const PDFViewer = ({
         const checkMobile = () => {
             const mobile = window.innerWidth < 768;
             setIsMobile(mobile);
-            // Auto-adjust scale for mobile
+            // Auto-adjust scale for mobile - optimize for readability
             if (mobile) {
-                // Calculate scale to fit screen width with some padding
-                const containerWidth = window.innerWidth - 32; // 16px padding each side
+                // Calculate scale to fit screen width with minimal padding for maximum reading area
+                const containerWidth = window.innerWidth - 16; // 8px padding each side
                 const pdfDefaultWidth = 612; // Standard PDF page width in points
-                const newScale = Math.min(containerWidth / pdfDefaultWidth, 1.2);
-                setScale(Math.max(0.5, newScale));
+                // Scale up to fit width, minimum 0.8 for readability
+                const idealScale = containerWidth / pdfDefaultWidth;
+                const newScale = Math.max(0.8, Math.min(idealScale, 1.5));
+                setScale(newScale);
                 setShowPreview(false);
             } else {
                 setScale(1.5);
@@ -371,14 +373,14 @@ const PDFViewer = ({
                     </div>
                 )}
 
-                {/* Scrollable PDF Container - Mobile optimized */}
+                {/* Scrollable PDF Container - Mobile optimized for readability */}
                 {!pdfError && (
                     <div
                         ref={scrollContainerRef}
-                        className={`flex-1 overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900 ${isMobile ? 'p-2' : 'p-6'}`}
+                        className={`flex-1 overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900 ${isMobile ? 'p-1' : 'p-6'}`}
                         style={{
-                            maxHeight: isMobile ? 'calc(100vh - 180px)' : 'calc(100vh - 120px)',
-                            minHeight: isMobile ? '400px' : '750px',
+                            maxHeight: isMobile ? 'calc(100vh - 120px)' : 'calc(100vh - 120px)',
+                            minHeight: isMobile ? '500px' : '750px',
                             WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
                         }}
                         onMouseUp={handleTextSelection}
@@ -419,15 +421,15 @@ const PDFViewer = ({
                                             ref={(el) => {
                                                 if (el) pageRefs.current.set(pageNum, el);
                                             }}
-                                            className={`relative ${isMobile ? 'mb-2' : 'mb-6'} shadow-2xl`}
+                                            className={`relative ${isMobile ? 'mb-1' : 'mb-6'} shadow-2xl`}
                                         >
                                             <Page
                                                 pageNumber={pageNum}
                                                 scale={scale}
-                                                renderTextLayer={!isMobile} // Disable text layer on mobile for performance
+                                                renderTextLayer={true}
                                                 renderAnnotationLayer={!isMobile}
                                                 className="bg-white"
-                                                width={isMobile ? window.innerWidth - 40 : undefined}
+                                                width={isMobile ? window.innerWidth - 16 : undefined}
                                             />
 
                                             {/* Render highlights for this page */}

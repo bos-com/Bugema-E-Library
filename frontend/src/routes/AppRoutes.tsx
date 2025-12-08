@@ -34,6 +34,7 @@ const CardPaymentPage = lazy(() => import('../app/pages/subscription/CardPayment
 const PayPalPaymentPage = lazy(() => import('../app/pages/subscription/PayPalPaymentPage'));
 const AdminOverviewPage = lazy(() => import('../app/pages/admin/AdminOverviewPage'));
 const AdminUsersPage = lazy(() => import('../app/pages/admin/AdminUsersPage'));
+const AdminSubscriptionsPage = lazy(() => import('../app/pages/admin/AdminSubscriptionsPage'));
 const AdminBooksPage = lazy(() => import('../app/pages/admin/AdminBooksPage'));
 const AdminCategoriesPage = lazy(() => import('../app/pages/admin/AdminCategoriesPage'));
 const UnauthorizedPage = lazy(() => import('../app/pages/UnauthorizedPage'));
@@ -173,6 +174,7 @@ const AppRoutes = () => (
         <Route index element={<Navigate to="overview" replace />} />
         <Route path="overview" element={<AdminOverviewPage />} />
         <Route path="users" element={<AdminUsersPage />} />
+        <Route path="subscriptions" element={<AdminSubscriptionsPage />} />
         <Route path="books" element={<AdminBooksPage />} />
         <Route path="categories" element={<AdminCategoriesPage />} />
       </Route>

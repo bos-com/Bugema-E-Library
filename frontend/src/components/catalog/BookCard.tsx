@@ -60,7 +60,7 @@ const BookCard = memo(
 									loading="lazy"
 								/>
 							) : (
-								<div className="flex h-full w-full items-center justify-center text-sm text-slate-400 dark:text-slate-600">
+								<div className="flex h-full w-full items-center justify-center text-xs text-slate-400 dark:text-slate-600">
 									No Cover
 								</div>
 							)}
@@ -92,17 +92,16 @@ const BookCard = memo(
 						<div className="flex flex-wrap gap-1.5 text-[10px]">
 							{Array.isArray(book.tags)
 								? book.tags.slice(0, 3).map((tag) => (
-										<span
-											key={tag}
-											className={`rounded-full px-2 py-0.5 font-medium ${
-												tag.toLowerCase() === "new"
-													? "bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300"
-													: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+									<span
+										key={tag}
+										className={`rounded-full px-2 py-0.5 font-medium ${tag.toLowerCase() === "new"
+											? "bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300"
+											: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
 											}`}
-										>
-											#{tag}
-										</span>
-								  ))
+									>
+										#{tag}
+									</span>
+								))
 								: null}
 						</div>
 						<div className="mt-auto flex flex-col gap-2">
@@ -116,11 +115,7 @@ const BookCard = memo(
 								</Link>
 								<button
 									onClick={handleReadClick}
-									className="btn-gradient-blue flex-1 px-3 py-1.5 text-center text-xs opacity-100 visible"
-									style={{
-										opacity: 1,
-										visibility: "visible",
-									}}
+									className="btn-gradient-blue flex-1 px-3 py-1.5 text-center text-xs font-semibold rounded-lg"
 								>
 									Read
 								</button>
@@ -129,11 +124,10 @@ const BookCard = memo(
 								<div className="flex items-center justify-center gap-3">
 									<button
 										onClick={() => onLike(book.id)}
-										className={`btn-icon ${
-											book.is_liked
-												? "text-red-500"
-												: "text-slate-400 hover:text-red-500"
-										}`}
+										className={`btn-icon ${book.is_liked
+											? "text-red-500"
+											: "text-slate-400 hover:text-red-500"
+											}`}
 										title={
 											book.is_liked ? "Unlike" : "Like"
 										}
@@ -158,11 +152,10 @@ const BookCard = memo(
 									</button>
 									<button
 										onClick={() => onBookmark(book.id)}
-										className={`btn-icon ${
-											book.is_bookmarked
-												? "text-blue-500"
-												: "text-slate-400 hover:text-blue-500"
-										}`}
+										className={`btn-icon ${book.is_bookmarked
+											? "text-blue-500"
+											: "text-slate-400 hover:text-blue-500"
+											}`}
 										title={
 											book.is_bookmarked
 												? "Remove bookmark"
@@ -238,17 +231,16 @@ const BookCard = memo(
 							<div className="flex flex-wrap gap-1.5 text-xs">
 								{Array.isArray(book.tags)
 									? book.tags.slice(0, 5).map((tag) => (
-											<span
-												key={tag}
-												className={`rounded-full px-2.5 py-0.5 font-medium ${
-													tag.toLowerCase() === "new"
-														? "bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300"
-														: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+										<span
+											key={tag}
+											className={`rounded-full px-2.5 py-0.5 font-medium ${tag.toLowerCase() === "new"
+												? "bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300"
+												: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
 												}`}
-											>
-												#{tag}
-											</span>
-									  ))
+										>
+											#{tag}
+										</span>
+									))
 									: null}
 							</div>
 							<div className="mt-auto flex items-center gap-3">
@@ -273,11 +265,10 @@ const BookCard = memo(
 									<div className="ml-auto flex items-center gap-3">
 										<button
 											onClick={() => onLike(book.id)}
-											className={`btn-icon ${
-												book.is_liked
-													? "text-red-500"
-													: "text-slate-400 hover:text-red-500"
-											}`}
+											className={`btn-icon ${book.is_liked
+												? "text-red-500"
+												: "text-slate-400 hover:text-red-500"
+												}`}
 											title={
 												book.is_liked
 													? "Unlike"
@@ -304,11 +295,10 @@ const BookCard = memo(
 										</button>
 										<button
 											onClick={() => onBookmark(book.id)}
-											className={`btn-icon ${
-												book.is_bookmarked
-													? "text-blue-500"
-													: "text-slate-400 hover:text-blue-500"
-											}`}
+											className={`btn-icon ${book.is_bookmarked
+												? "text-blue-500"
+												: "text-slate-400 hover:text-blue-500"
+												}`}
 											title={
 												book.is_bookmarked
 													? "Remove bookmark"

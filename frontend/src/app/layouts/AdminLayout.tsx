@@ -1,12 +1,14 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../../lib/store/auth';
-import { Menu, X, ChevronLeft, ChevronRight, LayoutDashboard, Users, BookOpen, FolderTree } from 'lucide-react';
+import { Menu, X, ChevronLeft, ChevronRight, LayoutDashboard, Users, BookOpen, FolderTree, CreditCard } from 'lucide-react';
 import { useState } from 'react';
 import bugemaLogo from '../../../bugema.webp';
+import ThemeToggle from '../../components/ThemeToggle';
 
 const adminLinks = [
   { label: 'Overview', to: '/admin/overview', icon: LayoutDashboard },
   { label: 'Users', to: '/admin/users', icon: Users },
+  { label: 'Subscriptions', to: '/admin/subscriptions', icon: CreditCard },
   { label: 'Books', to: '/admin/books', icon: BookOpen },
   { label: 'Categories', to: '/admin/categories', icon: FolderTree },
 ];
@@ -99,16 +101,19 @@ const AdminLayout = () => {
             </div>
           </div>
 
-          {/* Back to Main Site Link */}
-          <NavLink
-            to="/"
-            className="hidden md:flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-            Main Site
-          </NavLink>
+          {/* Theme Toggle and Back to Main Site */}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <NavLink
+              to="/"
+              className="hidden md:flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Main Site
+            </NavLink>
+          </div>
         </header>
 
         {/* Mobile Menu Dropdown */}

@@ -36,11 +36,9 @@ const VisitorRegisterPage = () => {
 
     const mutation = useMutation({
         mutationFn: registerUser,
-        onSuccess: (data) => {
-            setSession({ user: data.user, accessToken: data.tokens.access, refreshToken: data.tokens.refresh });
-            toast.success('Account created! Please choose a plan.');
-            // Redirect to subscription plans
-            navigate('/subscription/plans');
+        onSuccess: () => {
+            toast.success('Account created successfully! Please sign in.');
+            navigate('/login');
         },
         onError: (error: any) => {
             const msg = error?.response?.data?.error || 'Registration failed';
@@ -67,7 +65,7 @@ const VisitorRegisterPage = () => {
                         {...register('name')}
                         disabled={mutation.isPending}
                         className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-white disabled:opacity-50"
-                        placeholder="Jane Doe"
+                        placeholder="User name"
                     />
                     {errors.name && <p className="text-xs text-red-400">{errors.name.message}</p>}
                 </div>
@@ -78,7 +76,7 @@ const VisitorRegisterPage = () => {
                         {...register('email')}
                         disabled={mutation.isPending}
                         className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-white/10 dark:bg-slate-900 dark:text-white disabled:opacity-50"
-                        placeholder="jane@example.com"
+                        placeholder="user@gmail.com"
                     />
                     {errors.email && <p className="text-xs text-red-400">{errors.email.message}</p>}
                 </div>
