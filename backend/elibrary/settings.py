@@ -213,15 +213,22 @@ SIMPLE_JWT = {
 # CORS Configuration
 # Automatically include production and development URLs
 CORS_ALLOWED_ORIGINS_STR = os.getenv(
+# CORS Configuration
+# Automatically include production and development URLs
+CORS_ALLOWED_ORIGINS_STR = os.getenv(
     'CORS_ALLOWED_ORIGINS', 
     'https://bugema-e-library.vercel.app,http://localhost:5173,http://localhost:5174,http://localhost:3000'
 )
 # Strip trailing slashes to avoid mismatches
 CORS_ALLOWED_ORIGINS = [origin.strip().rstrip('/') for origin in CORS_ALLOWED_ORIGINS_STR.split(',') if origin.strip()]
 
-# Also allow any Vercel preview deployments
+# Ensure the main production frontend is always allowed
+if 'https://bugema-e-library.vercel.app' not in CORS_ALLOWED_ORIGINS:
+    CORS_ALLOWED_ORIGINS.append('https://bugema-e-library.vercel.app')
+
+# Also allow any Vercel preview deployments (regex matches Origin header, so no path)
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r'^https://bugema-e-library.vercel.app/.*\.vercel\.app$',
+    r'^https://.*\.vercel\.app$',
 ]
 
 CORS_ALLOW_CREDENTIALS = True

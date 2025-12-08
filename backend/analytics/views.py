@@ -33,7 +33,7 @@ def get_period_date_range(period: str):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def admin_analytics_overview(request):
-    """Get admin analytics overview (Refactored to use Django ORM)"""
+    """Get admin analytics overview (Optimized)"""
     try:
         if request.user.role != 'ADMIN':
             return Response({'error': 'Admin access required'}, status=status.HTTP_403_FORBIDDEN)
@@ -47,17 +47,20 @@ def admin_analytics_overview(request):
         # --- Most Viewed Books (filtered by viewed_period) ---
         viewed_start_date, _ = get_period_date_range(viewed_period)
         
-        # We need to aggregate BookView counts per book for the period
         most_viewed_books_qs = BookView.objects.filter(
             viewed_at__gte=viewed_start_date
         ).values('book').annotate(
             period_view_count=Count('id')
         ).order_by('-period_view_count')[:10]
         
+        # Optimize: Fetch all books in one query
+        book_ids = [entry['book'] for entry in most_viewed_books_qs]
+        books_map = Book.objects.in_bulk(book_ids)
+        
         most_viewed_books = []
         for entry in most_viewed_books_qs:
-            try:
-                book = Book.objects.get(pk=entry['book'])
+            book = books_map.get(entry['book'])
+            if book:
                 most_viewed_books.append({
                     'id': str(book.pk),
                     'title': book.title,
@@ -65,37 +68,48 @@ def admin_analytics_overview(request):
                     'view_count': entry['period_view_count'],
                     'like_count': book.like_count
                 })
-            except Book.DoesNotExist:
-                continue
 
         # --- Most Liked Books (filtered by liked_period) ---
         liked_start_date, _ = get_period_date_range(liked_period)
-        liked_in_period = BookLike.objects.filter(created_at__gte=liked_start_date)
-        book_likes_count = {}
-        for like in liked_in_period:
-            book_id = like.book_id
-            book_likes_count[book_id] = book_likes_count.get(book_id, 0) + 1
         
-        top_liked_book_ids = sorted(book_likes_count.keys(), key=lambda x: book_likes_count[x], reverse=True)[:10]
+        # Optimize: Aggregate likes directly in DB
+        top_liked_qs = BookLike.objects.filter(
+            created_at__gte=liked_start_date
+        ).values('book').annotate(
+            like_count=Count('id')
+        ).order_by('-like_count')[:10]
+        
+        liked_book_ids = [entry['book'] for entry in top_liked_qs]
+        liked_books_map = Book.objects.in_bulk(liked_book_ids)
+        
         most_liked_books = []
-        for book_id in top_liked_book_ids:
-            try:
-                book = Book.objects.get(pk=book_id, is_published=True)
+        for entry in top_liked_qs:
+            book = liked_books_map.get(entry['book'])
+            if book and book.is_published: # Ensure only published books
                 most_liked_books.append({
                     'id': str(book.pk),
                     'title': book.title,
                     'author': book.author.name if book.author else 'Unknown',
-                    'like_count': book_likes_count[book_id]
+                    'like_count': entry['like_count']
                 })
-            except Book.DoesNotExist:
-                continue
         
         # --- Most Liked Categories (filtered by liked_period) ---
+        # Optimize: Use reverse relationship from Category to BookLike (through Book)
+        # Note: This is complex because BookLike -> Book -> Category (Many-to-Many)
+        # We'll stick to the previous method if efficient enough, or optimize:
+        # Category -> books -> likes
+        
+        # Alternative: Fetch all likes with related book and categories pre-fetched
+        liked_in_period = BookLike.objects.filter(
+            created_at__gte=liked_start_date
+        ).select_related('book').prefetch_related('book__categories')
+        
         category_likes = {}
         for like in liked_in_period:
-            for category in like.book.categories.all():
-                category_name = category.name
-                category_likes[category_name] = category_likes.get(category_name, 0) + 1
+            if like.book:
+                for category in like.book.categories.all():
+                    category_name = category.name
+                    category_likes[category_name] = category_likes.get(category_name, 0) + 1
         
         most_liked_categories = sorted(
             category_likes.items(),
@@ -103,50 +117,58 @@ def admin_analytics_overview(request):
             reverse=True
         )[:10]
         
-        # --- Reads per day (based on reads_period) ---
+        # --- Reads per day/hour (Graph Data - Optimized) ---
         reads_start_date, reads_end_date = get_period_date_range(reads_period)
         
-        # If period is 'today', show hourly distribution for today
+        reads_graph_data = []
         if reads_period == 'today':
-            reads_graph_data = []
+            # Hourly aggregation
+            from django.db.models.functions import TruncHour
+            hourly_counts = BookView.objects.filter(
+                viewed_at__gte=reads_start_date,
+                viewed_at__lte=reads_end_date
+            ).annotate(
+                hour=TruncHour('viewed_at')
+            ).values('hour').annotate(
+                count=Count('id')
+            ).order_by('hour')
+            
+            # Convert to dictionary for easy lookup
+            counts_map = {item['hour'].hour: item['count'] for item in hourly_counts}
+            
+            # Fill all 24 hours
             for i in range(24):
-                hour_start = reads_end_date.replace(hour=i, minute=0, second=0, microsecond=0)
-                hour_end = hour_start + timedelta(hours=1)
-                
-                count = BookView.objects.filter(
-                    viewed_at__gte=hour_start,
-                    viewed_at__lt=hour_end
-                ).count()
-                
                 reads_graph_data.append({
-                    'date': f"{i}:00", # Label as hour
-                    'count': count
+                    'date': f"{i}:00",
+                    'count': counts_map.get(i, 0)
                 })
         else:
-            # For week/month/year, show daily distribution
-            # Limit to last 30 days max for graph if period is huge, or show all days in period?
-            # User asked for "accurate" data.
-            days_to_show = (reads_end_date - reads_start_date).days + 1
-            if days_to_show > 365: days_to_show = 365 # Cap at 1 year
+            # Daily aggregation
+            from django.db.models.functions import TruncDate
+            daily_counts = BookView.objects.filter(
+                viewed_at__gte=reads_start_date,
+                viewed_at__lte=reads_end_date
+            ).annotate(
+                day=TruncDate('viewed_at')
+            ).values('day').annotate(
+                count=Count('id')
+            ).order_by('day')
             
-            reads_graph_data = []
+            # Convert to dict
+            counts_map = {item['day']: item['count'] for item in daily_counts if item['day']}
+            
+            # Fill days in range
+            days_to_show = (reads_end_date - reads_start_date).days + 1
+            if days_to_show > 365: days_to_show = 365
+            
             for i in range(days_to_show):
-                date = reads_start_date + timedelta(days=i)
-                next_date = date + timedelta(days=1)
-                
-                book_opens = BookView.objects.filter(
-                    viewed_at__gte=date,
-                    viewed_at__lt=next_date
-                ).count()
-                
+                date = (reads_start_date + timedelta(days=i)).date()
                 reads_graph_data.append({
                     'date': date.strftime('%Y-%m-%d'),
-                    'count': book_opens
+                    'count': counts_map.get(date, 0)
                 })
-        
-        # --- Reads per hour (Peak usage times - All time or filtered?) ---
-        # Usually peak usage is an aggregate pattern, so maybe keep it all time or use reads_period?
-        # Let's use reads_period to be consistent with "Reading Activity" context
+
+        # --- Reads per hour (Peak usage - All Time/Period) ---
         reads_per_hour_qs = BookView.objects.filter(
             viewed_at__gte=reads_start_date
         ).annotate(
@@ -162,33 +184,31 @@ def admin_analytics_overview(request):
         
         # --- Active users (users who viewed books in last 7 days) ---
         week_ago = timezone.now() - timedelta(days=7)
-        active_user_ids = BookView.objects.filter(
+        # Use count(distinct=True) instead of len(list)
+        active_users_count = BookView.objects.filter(
             viewed_at__gte=week_ago
-        ).values_list('user_id', flat=True).distinct()
+        ).values('user_id').distinct().count()
         
         # --- Top search terms (filtered by search_period) ---
         search_start_date, _ = get_period_date_range(search_period)
-        search_events = SearchQuery.objects.filter(
+        # Using DB aggregation for top terms if possible, but queries are strings.
+        # Python Counter is fine if dataset isn't huge.
+        search_terms = SearchQuery.objects.filter(
             searched_at__gte=search_start_date
-        )
+        ).values_list('query', flat=True)
         
-        search_terms = []
-        for event in search_events:
-            query = event.query 
-            if query:
-                search_terms.append(query.lower())
-        
-        top_search_terms = Counter(search_terms).most_common(10)
+        top_search_terms = Counter([t.lower() for t in search_terms if t]).most_common(10)
         
         # --- Total statistics ---
         total_books = Book.objects.filter(is_published=True).count()
         total_categories = Category.objects.count()
         
-        # Total users
-        all_view_users = BookView.objects.values_list('user_id', flat=True).distinct()
-        all_search_users = SearchQuery.objects.filter(user__isnull=False).values_list('user_id', flat=True).distinct()
-        total_user_ids = set(itertools.chain(all_view_users, all_search_users))
-        total_users = len(total_user_ids)
+        # Total users (Aggregation)
+        # This one is tricky to do in one query because it unions two tables.
+        # Stick to Python set for now or optimize if needed.
+        all_view_users = set(BookView.objects.values_list('user_id', flat=True))
+        all_search_users = set(SearchQuery.objects.filter(user__isnull=False).values_list('user_id', flat=True))
+        total_users = len(all_view_users.union(all_search_users))
         
         # Total reads filtered by reads_period
         total_reads_period = BookView.objects.filter(viewed_at__gte=reads_start_date).count()
@@ -201,18 +221,10 @@ def admin_analytics_overview(request):
                 'total_users': total_users,
                 'total_reads': total_reads_all_time,
                 'total_reads_period': total_reads_period,
-                'active_users_7d': len(active_user_ids),
-                'period': reads_period # Main period
+                'active_users_7d': active_users_count,
+                'period': reads_period
             },
-            'most_read_books': [
-                {
-                    'id': str(book['id']), 
-                    'title': book['title'],
-                    'author': book['author'],
-                    'view_count': book['view_count'],
-                    'like_count': book['like_count']
-                } for book in most_viewed_books
-            ],
+            'most_read_books': most_viewed_books,
             'most_liked_books': most_liked_books,
             'most_liked_categories': [
                 {'name': name, 'likes': likes} for name, likes in most_liked_categories
@@ -238,7 +250,7 @@ def admin_analytics_overview(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def user_reading_stats(request):
-    """Get user's reading statistics (Refactored to use Django ORM)"""
+    """Get user's reading statistics (Optimized)"""
     try:
         # Use request.user.pk for ForeignKey lookup
         user_pk = request.user.pk 
@@ -249,14 +261,22 @@ def user_reading_stats(request):
         
         progress_data = ReadingProgress.objects.filter(user_id=user_pk).select_related('book')
 
-        # Aggregate totals
+        # Aggregate totals directly in DB where possible
         total_books_read = progress_data.filter(completed=True).count()
-        total_time_seconds = progress_data.aggregate(total=Sum('total_time_seconds'))['total'] or 0
-        total_pages_read = sum(
-            progress.book.pages or 0
-            for progress in progress_data.filter(completed=True)
-            if progress.book
+        
+        # Aggregations
+        aggregates = progress_data.aggregate(
+            total_time=Sum('total_time_seconds'),
+            # For total pages, we need to filter completed first, but aggregate() acts on queryset
+            # So we calculate separately or use conditional aggregation
         )
+        total_time_seconds = aggregates['total_time'] or 0
+        
+        # Total Pages (Completed books only)
+        # Using db aggregation is faster than python sum loop
+        total_pages_read = progress_data.filter(completed=True).aggregate(
+            total=Sum('book__pages')
+        )['total'] or 0
 
         # Books read this month/year
         books_read_this_month = progress_data.filter(
@@ -264,10 +284,9 @@ def user_reading_stats(request):
             updated_at__gte=start_date
         ).count()
 
-        total_time_this_month = sum(
-            progress.total_time_seconds for progress in 
-            progress_data.filter(updated_at__gte=start_date)
-        )
+        total_time_this_month = progress_data.filter(
+            updated_at__gte=start_date
+        ).aggregate(total=Sum('total_time_seconds'))['total'] or 0
 
         books_read_this_year = progress_data.filter(
             completed=True,
@@ -279,69 +298,80 @@ def user_reading_stats(request):
         longest_streak = 0
         today = timezone.now().date()
         
-        # Get reading sessions for streak calculation (using Django ORM filter)
-        sessions = ReadingSession.objects.filter(user_id=user_pk).order_by('-started_at')
+        # Get reading sessions dates (distinct)
+        # Optimize: distinct dates only
+        session_dates = list(ReadingSession.objects.filter(
+            user_id=user_pk
+        ).values_list('started_at__date', flat=True).distinct().order_by('-started_at__date'))
         
-        if sessions:
-            session_dates = sorted({session.started_at.date() for session in sessions}, reverse=True)
-
-            # Current streak (ending today/yesterday)
-            if session_dates and (session_dates[0] == today or session_dates[0] == today - timedelta(days=1)):
+        if session_dates:
+            # Dates are already sorted desc
+            latest_date = session_dates[0]
+            
+            # Current streak checks
+            if latest_date == today or latest_date == today - timedelta(days=1):
                 current_streak = 1
-                target_date = today if session_dates[0] == today else today - timedelta(days=1)
-                for date in session_dates[1:]:
-                    expected = target_date - timedelta(days=1)
-                    if date == expected:
+                streak_date = latest_date
+                
+                for i in range(1, len(session_dates)):
+                    prev_date = session_dates[i]
+                    if (streak_date - prev_date).days == 1:
                         current_streak += 1
-                        target_date = expected
-                    elif date < expected:
+                        streak_date = prev_date
+                    else:
                         break
-
-            # Longest streak over all dates
-            streak = 0
-            previous_date = None
-            for date in sorted(session_dates):
-                if previous_date and (date - previous_date).days == 1:
-                    streak += 1
+            
+            # Longest streak calculation
+            temp_streak = 1
+            longest_streak = 1
+            # Sort ascending for longest streak logic
+            sorted_dates = sorted(session_dates)
+            for i in range(1, len(sorted_dates)):
+                if (sorted_dates[i] - sorted_dates[i-1]).days == 1:
+                    temp_streak += 1
                 else:
-                    streak = 1
-                longest_streak = max(longest_streak, streak)
-                previous_date = date
+                    longest_streak = max(longest_streak, temp_streak)
+                    temp_streak = 1
+            longest_streak = max(longest_streak, temp_streak)
 
         # Favorite categories
-        category_counts = {}
+        # Enhance: Could be optimized with aggregation but ManyToMany makes it tricky without annotation
+        # Keep python logic for now as it's not the main bottleneck (limited by user's books)
+        category_counts = Counter()
         for progress in progress_data.filter(completed=True):
             if progress.book:
                 for category in progress.book.categories.all():
-                    category_name = category.name
-                    category_counts[category_name] = category_counts.get(category_name, 0) + 1
+                    category_counts[category.name] += 1
         
-        favorite_categories = sorted(
-            category_counts.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )[:5]
-        
+        favorite_categories = category_counts.most_common(5)
         favorite_category_name = favorite_categories[0][0] if favorite_categories else None
         
         # Reading goal progress (assuming 12 books per year)
         reading_goal_progress = min(books_read_this_year / 12 * 100, 100)
 
-        # Pages daily activity (Last 14 days)
+        # Pages daily activity (Last 14 days) - OPTIMIZED
+        # Single query instead of 14
+        activity_start = today - timedelta(days=13) # Go back 13 days + today = 14
+        
+        from django.db.models.functions import TruncDate
+        daily_pages = ReadingSession.objects.filter(
+            user_id=user_pk,
+            started_at__date__gte=activity_start
+        ).annotate(
+            day=TruncDate('started_at')
+        ).values('day').annotate(
+            total_pages=Sum('pages_read')
+        ).order_by('day')
+        
+        # Convert to map
+        pages_map = {item['day']: item['total_pages'] for item in daily_pages if item['day']}
+        
         pages_daily_activity = []
         for i in range(14):
             date = today - timedelta(days=i)
-            # Sum pages_read of sessions started on this date
-            day_pages = ReadingSession.objects.filter(
-                user_id=user_pk,
-                started_at__date=date
-            ).aggregate(total_pages=Sum('pages_read'))
-            
-            pages = day_pages['total_pages'] or 0
-            
             pages_daily_activity.append({
                 'date': date.strftime('%Y-%m-%d'),
-                'pages': pages
+                'pages': pages_map.get(date, 0)
             })
         pages_daily_activity.reverse()
 
@@ -359,7 +389,7 @@ def user_reading_stats(request):
             'books_read_this_year': books_read_this_year,
             'books_read_this_month': books_read_this_month,
             'total_time_this_month_seconds': total_time_this_month,
-            'pages_daily_activity': pages_daily_activity # Added field
+            'pages_daily_activity': pages_daily_activity
         })
 
         return Response(serializer.data)
