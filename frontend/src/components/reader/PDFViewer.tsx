@@ -90,24 +90,12 @@ const PDFViewer = ({
             } else {
                 setScale(1.5);
                 setShowPreview(true);
-            }
-        };
-
-        checkMobile();
-
-        // Debounce resize event
-        let timeoutId: NodeJS.Timeout;
-        const handleResize = () => {
-            clearTimeout(timeoutId);
-            timeoutId = setTimeout(checkMobile, 100);
-        };
-
-        window.addEventListener('resize', handleResize);
-        return () => {
-            window.removeEventListener('resize', handleResize);
-            clearTimeout(timeoutId);
-        };
-    }, []);
+                window.addEventListener('resize', handleResize);
+                return () => {
+                    window.removeEventListener('resize', handleResize);
+                    clearTimeout(timeoutId);
+                };
+            }, []);
 
     useEffect(() => {
         setCurrentPage(initialPage);
